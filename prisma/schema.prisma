@@ -1,0 +1,588 @@
+// ============================================================
+// Nepal Accounting System — Prisma Schema
+// Multi-tenant SaaS accounting platform for Nepali businesses
+// All financial dates stored as ISO (AD); UI displays BS (Bikram Sambat)
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// AUTH & USERS
+// ============================================================
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  name          String?
+  passwordHash  String?
+  image         String?
+  emailVerified DateTime?
+  twoFactorEnabled Boolean @default(false)
+  preferredLanguage String @default("en") // "en" | "ne"
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  memberships   UserTenant[]
+  sessions      Session[]
+  auditLogs     AuditLog[]
+}
+
+model UserTenant {
+  id        String   @id @default(cuid())
+  userId    String
+  tenantId  String
+  role      String   @default("ACCOUNTANT") // OWNER | ADMIN | ACCOUNTANT | DATA_ENTRY | AUDITOR
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, tenantId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  userId       String
+  token        String   @unique
+  expiresAt    DateTime
+  ipAddress    String?
+  userAgent    String?
+  createdAt    DateTime @default(now())
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ============================================================
+// TENANT (One company = one tenant)
+// ============================================================
+
+model Tenant {
+  id            String   @id @default(cuid())
+  name          String
+  legalName     String?
+  pan           String?  // PAN number (IRD)
+  vatNumber     String?  // VAT registration number
+  exciseNumber  String?
+  ssfNumber     String?  // Social Security Fund
+  phone         String?
+  email         String?
+  address       String?
+  municipality  String?
+  district      String?
+  province      String?
+  baseCurrency  String   @default("NPR")
+  fyStartBsMonth Int     @default(4) // Shrawan = month 4 (Baisakh=1, ..., Chaitra=12)
+  language      String   @default("en")
+  logoUrl       String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  memberships      UserTenant[]
+  fiscalYears      FiscalYear[]
+  accounts         Account[]
+  parties          Party[]
+  items            Item[]
+  godowns          Godown[]
+  vouchers         Voucher[]
+  invoices         Invoice[]
+  purchaseBills    PurchaseBill[]
+  taxReturns       TaxReturn[]
+  taxRules         TaxRule[]
+  employees        Employee[]
+  payrollRuns      PayrollRun[]
+  fixedAssets      FixedAsset[]
+  documents        Document[]
+  auditLogs        AuditLog[]
+  costCenters      CostCenter[]
+}
+
+model FiscalYear {
+  id           String  @id @default(cuid())
+  tenantId     String
+  bsYearStart  Int     // e.g., 2082
+  bsYearEnd    Int     // e.g., 2083
+  adStart      DateTime
+  adEnd        DateTime
+  status       String  @default("OPEN") // OPEN | CLOSED | LOCKED
+  closedAt     DateTime?
+
+  tenant       Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  vouchers     Voucher[]
+  invoices     Invoice[]
+  purchaseBills PurchaseBill[]
+  payrollRuns  PayrollRun[]
+  taxReturns   TaxReturn[]
+
+  @@unique([tenantId, bsYearStart])
+}
+
+// ============================================================
+// CHART OF ACCOUNTS
+// ============================================================
+
+model Account {
+  id          String   @id @default(cuid())
+  tenantId    String
+  code        String   // e.g., "1010"
+  name        String   // English name
+  nameNp      String?  // Nepali name (Devanagari)
+  type        String   // ASSET | LIABILITY | EQUITY | INCOME | EXPENSE
+  subType     String?  // e.g., CURRENT_ASSET, FIXED_ASSET, LONG_TERM_LIABILITY
+  parentId    String?
+  isGroup     Boolean  @default(false)
+  isCash      Boolean  @default(false) // cash/bank account
+  isBank      Boolean  @default(false)
+  openingBalance Decimal @default(0)
+  description String?
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  parent      Account? @relation("AccountHierarchy", fields: [parentId], references: [id])
+  children    Account[] @relation("AccountHierarchy")
+  voucherLines VoucherLine[]
+  costCenter  String?
+
+  @@unique([tenantId, code])
+}
+
+model CostCenter {
+  id        String   @id @default(cuid())
+  tenantId  String
+  name      String
+  nameNp    String?
+  code      String?
+  isActive  Boolean  @default(true)
+
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, code])
+}
+
+// ============================================================
+// PARTIES (Customers + Suppliers)
+// ============================================================
+
+model Party {
+  id           String   @id @default(cuid())
+  tenantId     String
+  name         String
+  nameNp       String?
+  type         String   // CUSTOMER | SUPPLIER | BOTH | EMPLOYEE
+  pan          String?  // PAN of party
+  vatNumber    String?
+  phone        String?
+  email        String?
+  address      String?
+  municipality String?
+  district     String?
+  creditLimit  Decimal? @default(0)
+  openingBalance Decimal @default(0) // Positive = they owe us; Negative = we owe them
+  tdsSection   String?  // e.g., "88_RENT", "88_INTEREST", "88_CONTRACT"
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  invoices     Invoice[]
+  purchaseBills PurchaseBill[]
+
+  @@unique([tenantId, pan])
+}
+
+// ============================================================
+// ITEMS (Products / Services)
+// ============================================================
+
+model Item {
+  id              String   @id @default(cuid())
+  tenantId        String
+  sku             String
+  name            String
+  nameNp          String?
+  type            String   @default("GOODS") // GOODS | SERVICE
+  unit            String   @default("PCS") // PCS, KG, LTR, BOX
+  valuationMethod String   @default("WEIGHTED_AVG") // FIFO | WEIGHTED_AVG | SPECIFIC
+  salePrice       Decimal  @default(0)
+  purchasePrice   Decimal  @default(0)
+  vatRate         Decimal  @default(13)
+  vatExempt       Boolean  @default(false)
+  hsnCode         String?
+  reorderLevel    Decimal  @default(0)
+  openingStock    Decimal  @default(0)
+  openingValue    Decimal  @default(0)
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  invoiceLines    InvoiceLine[]
+  inventoryMovements InventoryMovement[]
+
+  @@unique([tenantId, sku])
+}
+
+model Godown {
+  id        String   @id @default(cuid())
+  tenantId  String
+  name      String
+  nameNp    String?
+  address   String?
+  isActive  Boolean  @default(true)
+
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  inventoryMovements InventoryMovement[]
+}
+
+model InventoryMovement {
+  id          String   @id @default(cuid())
+  tenantId    String
+  itemId      String
+  godownId    String?
+  type        String   // IN | OUT | TRANSFER | ADJUSTMENT
+  quantity    Decimal
+  rate        Decimal
+  value       Decimal
+  refType     String?  // INVOICE | PURCHASE | VOUCHER | OPENING
+  refId       String?
+  bsDate      String   // "2082-04-15"
+  adDate      DateTime
+  notes       String?
+  createdAt   DateTime @default(now())
+
+  item        Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  godown      Godown?  @relation(fields: [godownId], references: [id])
+}
+
+// ============================================================
+// VOUCHERS (Journal Entries — double-entry)
+// ============================================================
+
+model Voucher {
+  id           String   @id @default(cuid())
+  tenantId     String
+  fiscalYearId String?
+  voucherNo    String
+  voucherType  String   @default("JOURNAL") // JOURNAL | RECEIPT | PAYMENT | CONTRA | SALES | PURCHASE
+  bsDate       String   // "2082-04-15"
+  adDate       DateTime
+  narration    String
+  refType      String?
+  refId        String?  // links to Invoice/PurchaseBill/etc
+  totalDebit   Decimal  @default(0)
+  totalCredit  Decimal  @default(0)
+  status       String   @default("DRAFT") // DRAFT | POSTED | CANCELLED
+  createdBy    String?
+  approvedBy   String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  fiscalYear   FiscalYear? @relation(fields: [fiscalYearId], references: [id])
+  lines        VoucherLine[]
+
+  @@unique([tenantId, voucherNo])
+}
+
+model VoucherLine {
+  id          String   @id @default(cuid())
+  voucherId   String
+  accountId   String
+  partyId     String?
+  costCenter  String?
+  debit       Decimal  @default(0)
+  credit      Decimal  @default(0)
+  description String?
+
+  voucher     Voucher  @relation(fields: [voucherId], references: [id], onDelete: Cascade)
+  account     Account  @relation(fields: [accountId], references: [id])
+}
+
+// ============================================================
+// SALES INVOICES (VAT-compliant)
+// ============================================================
+
+model Invoice {
+  id            String   @id @default(cuid())
+  tenantId      String
+  fiscalYearId  String?
+  invoiceNo     String
+  invoiceType   String   @default("TAX_INVOICE") // TAX_INVOICE | ABBREVIATED | EXPORT | EXEMPT
+  bsDate        String
+  adDate        DateTime
+  partyId       String
+  panBuyer      String?  // customer PAN (printed on invoice)
+  subtotal      Decimal  @default(0) // before VAT
+  discountAmount Decimal @default(0)
+  taxableAmount Decimal  @default(0)
+  vatAmount     Decimal  @default(0)
+  zeroRatedAmount Decimal @default(0)
+  exemptAmount  Decimal  @default(0)
+  totalAmount   Decimal  @default(0)
+  paidAmount    Decimal  @default(0)
+  currency      String   @default("NPR")
+  exchangeRate  Decimal  @default(1)
+  status        String   @default("UNPAID") // UNPAID | PARTIAL | PAID | CANCELLED
+  dueDate       DateTime?
+  notes         String?
+  qrData        String?
+  createdBy     String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  fiscalYear    FiscalYear? @relation(fields: [fiscalYearId], references: [id])
+  party         Party    @relation(fields: [partyId], references: [id])
+  lines         InvoiceLine[]
+
+  @@unique([tenantId, invoiceNo])
+}
+
+model InvoiceLine {
+  id           String   @id @default(cuid())
+  invoiceId    String
+  itemId       String?
+  description  String
+  quantity     Decimal  @default(1)
+  unit         String?
+  rate         Decimal  @default(0)
+  discountPct  Decimal  @default(0)
+  discountAmount Decimal @default(0)
+  taxableAmount Decimal @default(0)
+  vatRate      Decimal  @default(13)
+  vatAmount    Decimal  @default(0)
+  totalAmount  Decimal  @default(0)
+
+  invoice      Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  item         Item?    @relation(fields: [itemId], references: [id])
+}
+
+// ============================================================
+// PURCHASE BILLS (with input VAT + TDS capture)
+// ============================================================
+
+model PurchaseBill {
+  id            String   @id @default(cuid())
+  tenantId      String
+  fiscalYearId  String?
+  billNo        String
+  vendorBillNo  String?  // vendor's invoice no
+  bsDate        String
+  adDate        DateTime
+  partyId       String
+  vendorPan     String?
+  subtotal      Decimal  @default(0)
+  discountAmount Decimal @default(0)
+  taxableAmount Decimal  @default(0)
+  vatAmount     Decimal  @default(0) // input VAT claimable
+  exemptAmount  Decimal  @default(0)
+  totalAmount   Decimal  @default(0)
+  paidAmount    Decimal  @default(0)
+  tdsSection    String?  // e.g., "88_RENT"
+  tdsRate       Decimal  @default(0)
+  tdsAmount     Decimal  @default(0)
+  netPayable    Decimal  @default(0) // total - TDS
+  status        String   @default("UNPAID") // UNPAID | PAID | CANCELLED
+  dueDate       DateTime?
+  notes         String?
+  createdBy     String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  fiscalYear    FiscalYear? @relation(fields: [fiscalYearId], references: [id])
+  party         Party    @relation(fields: [partyId], references: [id])
+  lines         PurchaseLine[]
+
+  @@unique([tenantId, billNo])
+}
+
+model PurchaseLine {
+  id           String   @id @default(cuid())
+  purchaseBillId String
+  itemId       String?
+  description  String
+  quantity     Decimal  @default(1)
+  unit         String?
+  rate         Decimal  @default(0)
+  taxableAmount Decimal @default(0)
+  vatRate      Decimal  @default(13)
+  vatAmount    Decimal  @default(0)
+  totalAmount  Decimal  @default(0)
+
+  purchaseBill PurchaseBill @relation(fields: [purchaseBillId], references: [id], onDelete: Cascade)
+}
+
+// ============================================================
+// TAX ENGINE — Configurable rules (Finance Act changes)
+// ============================================================
+
+model TaxRule {
+  id            String   @id @default(cuid())
+  tenantId      String
+  taxType       String   // VAT | TDS | EXCISE | SSF | INCOME_TAX | DST | ESF | HSF
+  section       String?  // e.g., "88_RENT", "STANDARD", "RIDE_SHARE"
+  name          String
+  rate          Decimal  @default(0)
+  thresholdMin  Decimal  @default(0)
+  thresholdMax  Decimal? // null = no cap
+  effectiveFromBs String // "2082-04-01"
+  effectiveToBs  String? // null = ongoing
+  appliesTo     String?  // RESIDENT | NON_RESIDENT | ALL
+  condition     String?  // JSON predicate
+  createdAt     DateTime @default(now())
+
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+}
+
+// ============================================================
+// TAX RETURNS (VAT V48, TDS Form 78/79, Income Tax Form 11)
+// ============================================================
+
+model TaxReturn {
+  id           String   @id @default(cuid())
+  tenantId     String
+  fiscalYearId String?
+  returnPeriod String   // e.g., "2082-04" (BS month/year) or "2082/83" (annual)
+  returnType   String   // VAT_RETURN | TDS_RETURN | EXCISE_RETURN | INCOME_TAX | DST_RETURN
+  status       String   @default("DRAFT") // DRAFT | FILED | AMENDED
+  payload      String   // JSON snapshot of computed values
+  totalTaxable Decimal  @default(0)
+  totalTax     Decimal  @default(0)
+  filedAt      DateTime?
+  filedBy      String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  fiscalYear   FiscalYear? @relation(fields: [fiscalYearId], references: [id])
+}
+
+// ============================================================
+// PAYROLL + SSF
+// ============================================================
+
+model Employee {
+  id            String   @id @default(cuid())
+  tenantId      String
+  name          String
+  nameNp        String?
+  pan           String?
+  ssfNumber     String?
+  citNumber     String?  // CIT (provident fund) number
+  department    String?
+  designation   String?
+  joiningBsDate String?
+  basicSalary   Decimal  @default(0)
+  allowance     Decimal  @default(0) // total monthly allowance
+  grade         String?
+  residency     String   @default("RESIDENT") // RESIDENT | NON_RESIDENT
+  status        String   @default("ACTIVE") // ACTIVE | INACTIVE
+  phone         String?
+  email         String?
+  bankAccount   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  payrollRuns   PayrollRun[]
+}
+
+model PayrollRun {
+  id              String   @id @default(cuid())
+  tenantId        String
+  fiscalYearId    String?
+  bsMonth         String   // "2082-04"
+  employeeId      String
+  basicSalary     Decimal  @default(0)
+  allowance       Decimal  @default(0)
+  grossSalary     Decimal  @default(0)
+  ssfEmployee     Decimal  @default(0) // 11% of basic
+  ssfEmployer     Decimal  @default(0) // 20% of basic
+  citEmployee     Decimal  @default(0)
+  tds             Decimal  @default(0)
+  otherDeduction  Decimal  @default(0)
+  netSalary       Decimal  @default(0)
+  status          String   @default("DRAFT") // DRAFT | PAID
+  paidAt          DateTime?
+  createdAt       DateTime @default(now())
+
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  fiscalYear      FiscalYear? @relation(fields: [fiscalYearId], references: [id])
+  employee        Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+}
+
+// ============================================================
+// FIXED ASSETS + DEPRECIATION (Income Tax Act rates)
+// ============================================================
+
+model FixedAsset {
+  id              String   @id @default(cuid())
+  tenantId        String
+  assetCode       String
+  name            String
+  category        String   // BUILDING | PLANT_MACHINERY | VEHICLE | FURNITURE | IT_EQUIPMENT | INTANGIBLE
+  acquisitionBsDate String
+  acquisitionAdDate DateTime
+  cost            Decimal  @default(0)
+  salvageValue    Decimal  @default(0)
+  usefulLifeYears Int      @default(5)
+  depMethod       String   @default("WDV") // WDV | SLM
+  depRate         Decimal  @default(0) // percent per annum
+  accumulatedDep  Decimal  @default(0)
+  location        String?
+  status          String   @default("ACTIVE") // ACTIVE | DISPOSED
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+}
+
+// ============================================================
+// DOCUMENTS (attachments — bills, challans, invoices)
+// ============================================================
+
+model Document {
+  id          String   @id @default(cuid())
+  tenantId    String
+  entityType  String   // INVOICE | PURCHASE_BILL | VOUCHER | PARTY
+  entityId    String
+  fileName    String
+  fileUrl     String
+  fileSize    Int?
+  mimeType    String?
+  uploadedBy  String?
+  createdAt   DateTime @default(now())
+
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+}
+
+// ============================================================
+// AUDIT LOG (immutable — for statutory audit)
+// ============================================================
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  tenantId    String
+  userId      String?
+  action      String   // CREATE | UPDATE | DELETE | POST | CANCEL
+  entityType  String
+  entityId    String
+  beforeData  String?  // JSON
+  afterData   String?  // JSON
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user        User?    @relation(fields: [userId], references: [id])
+}
