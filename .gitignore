@@ -32,23 +32,32 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+.env
 
 # vercel
 .vercel
 
+# Database files (SQLite local dev DB — contains tenant data, never commit)
+db/*.db
+db/*.db-journal
+db/*.db-wal
+db/*.db-shm
 
-# typescript
-*.tsbuildinfo
-next-env.d.ts
-local-*
-.claude
-.z-ai-config
+# Build artifacts and local-only files
 *.log
 dev.log
 dev.out.log
 test
 prompt
-
 server.log
+
+# Generated sample exports (keep folder, ignore files)
+download/*.pdf
+download/*.xlsx
+download/*.png
+
+# Research / scratch JSON (local-only)
+research_*.json
+
 # Skills directory
 /skills/
