@@ -2,6 +2,7 @@
 
 import { type ViewKey } from '@/app/page'
 import { cn } from '@/lib/utils'
+import { useI18n } from '@/components/accounting/i18n-provider'
 import {
   LayoutDashboard,
   FileText,
@@ -16,6 +17,12 @@ import {
   Receipt as InvoiceIcon,
   Building2,
   Calendar,
+  Package,
+  PackageSearch,
+  Boxes,
+  Languages,
+  DollarSign,
+  Building,
 } from 'lucide-react'
 
 interface SidebarProps {
@@ -26,33 +33,38 @@ interface SidebarProps {
 
 interface NavItem {
   key: ViewKey
-  label: string
-  labelNp: string
+  labelKey: 'dashboard' | 'newInvoice' | 'salesInvoices' | 'purchaseBills' | 'journalVouchers' | 'parties' | 'chartOfAccounts' | 'items' | 'stockMovements' | 'fixedAssets' | 'vatReturn' | 'payroll' | 'trialBalance' | 'profitLoss' | 'balanceSheet' | 'fxRates' | 'tenants'
   icon: React.ComponentType<{ className?: string }>
-  group: string
+  group: 'navOverview' | 'navTransactions' | 'navMaster' | 'navInventory' | 'navTaxCompliance' | 'navReports'
 }
 
 const NAV: NavItem[] = [
-  { key: 'dashboard', label: 'Dashboard', labelNp: 'ड्यासबोर्ड', icon: LayoutDashboard, group: 'Overview' },
+  { key: 'dashboard', labelKey: 'dashboard', icon: LayoutDashboard, group: 'navOverview' },
 
-  { key: 'invoice-entry', label: 'New Sales Invoice', labelNp: 'बिक्री बिल', icon: Receipt, group: 'Transactions' },
-  { key: 'invoices-list', label: 'Sales Invoices', labelNp: 'बिक्री सूची', icon: InvoiceIcon, group: 'Transactions' },
-  { key: 'purchase-bill', label: 'Purchase Bills', labelNp: 'खरिद बिल', icon: ShoppingCart, group: 'Transactions' },
-  { key: 'vouchers', label: 'Journal Vouchers', labelNp: 'भौचर', icon: BookOpen, group: 'Transactions' },
-  { key: 'parties', label: 'Customers & Suppliers', labelNp: 'ग्राहक र आपूर्तिकर्ता', icon: Users, group: 'Transactions' },
+  { key: 'invoice-entry', labelKey: 'newInvoice', icon: Receipt, group: 'navTransactions' },
+  { key: 'invoices-list', labelKey: 'salesInvoices', icon: InvoiceIcon, group: 'navTransactions' },
+  { key: 'purchase-bill', labelKey: 'purchaseBills', icon: ShoppingCart, group: 'navTransactions' },
+  { key: 'vouchers', labelKey: 'journalVouchers', icon: BookOpen, group: 'navTransactions' },
+  { key: 'parties', labelKey: 'parties', icon: Users, group: 'navTransactions' },
 
-  { key: 'chart-of-accounts', label: 'Chart of Accounts', labelNp: 'खाता वर्गीकरण', icon: Building2, group: 'Master' },
+  { key: 'tenants', labelKey: 'tenants', icon: Building, group: 'navMaster' },
+  { key: 'chart-of-accounts', labelKey: 'chartOfAccounts', icon: Building2, group: 'navMaster' },
+  { key: 'items', labelKey: 'items', icon: Package, group: 'navInventory' },
+  { key: 'stock-movements', labelKey: 'stockMovements', icon: PackageSearch, group: 'navInventory' },
+  { key: 'fixed-assets', labelKey: 'fixedAssets', icon: Boxes, group: 'navInventory' },
+  { key: 'fx-rates', labelKey: 'fxRates', icon: DollarSign, group: 'navInventory' },
 
-  { key: 'vat-return', label: 'VAT Return (V48)', labelNp: 'VAT रिटर्न', icon: Calculator, group: 'Tax & Compliance' },
-  { key: 'payroll', label: 'Payroll & SSF', labelNp: 'तलब र SSF', icon: Wallet, group: 'Tax & Compliance' },
+  { key: 'vat-return', labelKey: 'vatReturn', icon: Calculator, group: 'navTaxCompliance' },
+  { key: 'payroll', labelKey: 'payroll', icon: Wallet, group: 'navTaxCompliance' },
 
-  { key: 'trial-balance', label: 'Trial Balance', labelNp: 'तलपाना', icon: FileSpreadsheet, group: 'Reports' },
-  { key: 'profit-loss', label: 'Profit & Loss', labelNp: 'नाफा नोक्सान', icon: FileText, group: 'Reports' },
-  { key: 'balance-sheet', label: 'Balance Sheet', labelNp: 'ब्यालेन्स सिट', icon: Scale, group: 'Reports' },
+  { key: 'trial-balance', labelKey: 'trialBalance', icon: FileSpreadsheet, group: 'navReports' },
+  { key: 'profit-loss', labelKey: 'profitLoss', icon: FileText, group: 'navReports' },
+  { key: 'balance-sheet', labelKey: 'balanceSheet', icon: Scale, group: 'navReports' },
 ]
 
 export function Sidebar({ currentView, onNavigate, todayBs }: SidebarProps) {
-  const groups: string[] = Array.from(new Set(NAV.map(n => n.group)))
+  const { t, lang, setLang } = useI18n()
+  const groupOrder: Array<'navOverview' | 'navTransactions' | 'navMaster' | 'navInventory' | 'navTaxCompliance' | 'navReports'> = ['navOverview', 'navTransactions', 'navMaster', 'navInventory', 'navTaxCompliance', 'navReports']
 
   return (
     <aside className="w-64 bg-white border-r border-slate-200 flex flex-col h-[calc(100vh-1.25rem)] sticky top-0">
@@ -60,12 +72,22 @@ export function Sidebar({ currentView, onNavigate, todayBs }: SidebarProps) {
       <div className="p-4 border-b border-slate-200">
         <div className="flex items-center gap-2">
           <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-600 to-red-600 flex items-center justify-center text-white font-bold text-lg shadow-sm">
-            ने
+            {lang === 'ne' ? 'ने' : 'NA'}
           </div>
-          <div>
-            <div className="font-semibold text-slate-900 text-sm leading-tight">Nepal Accounting</div>
-            <div className="text-[10px] text-slate-500">नेपाली लेखा प्रणाली</div>
+          <div className="flex-1">
+            <div className="font-semibold text-slate-900 text-sm leading-tight">{t('appName')}</div>
+            <div className="text-[10px] text-slate-500">
+              {lang === 'ne' ? 'BS Calendar · IRD' : 'Bikram Sambat · IRD'}
+            </div>
           </div>
+          <button
+            onClick={() => setLang(lang === 'en' ? 'ne' : 'en')}
+            className="p-1.5 rounded-md hover:bg-slate-100 text-slate-600"
+            title="Switch language"
+            aria-label="Toggle language"
+          >
+            <Languages className="w-4 h-4" />
+          </button>
         </div>
       </div>
 
@@ -81,38 +103,47 @@ export function Sidebar({ currentView, onNavigate, todayBs }: SidebarProps) {
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto py-3">
-        {groups.map(group => (
-          <div key={group} className="mb-4">
-            <div className="px-4 mb-1.5 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
-              {group}
+        {groupOrder.map(group => {
+          const items = NAV.filter(n => n.group === group)
+          if (items.length === 0) return null
+          return (
+            <div key={group} className="mb-4">
+              <div className="px-4 mb-1.5 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                {t(group)}
+              </div>
+              {items.map(item => {
+                const Icon = item.icon
+                const isActive = currentView === item.key
+                return (
+                  <button
+                    key={item.key}
+                    onClick={() => onNavigate(item.key)}
+                    className={cn(
+                      'w-full text-left px-4 py-2 flex items-center gap-2.5 text-sm transition-colors border-l-2',
+                      isActive
+                        ? 'bg-blue-50 text-blue-700 border-blue-600 font-medium'
+                        : 'text-slate-600 hover:bg-slate-50 border-transparent'
+                    )}
+                  >
+                    <Icon className="w-4 h-4 flex-shrink-0" />
+                    <span className="flex-1 truncate">{t(item.labelKey)}</span>
+                  </button>
+                )
+              })}
             </div>
-            {NAV.filter(n => n.group === group).map(item => {
-              const Icon = item.icon
-              const isActive = currentView === item.key
-              return (
-                <button
-                  key={item.key}
-                  onClick={() => onNavigate(item.key)}
-                  className={cn(
-                    'w-full text-left px-4 py-2 flex items-center gap-2.5 text-sm transition-colors border-l-2',
-                    isActive
-                      ? 'bg-blue-50 text-blue-700 border-blue-600 font-medium'
-                      : 'text-slate-600 hover:bg-slate-50 border-transparent'
-                  )}
-                >
-                  <Icon className="w-4 h-4 flex-shrink-0" />
-                  <span className="flex-1 truncate">{item.label}</span>
-                </button>
-              )
-            })}
-          </div>
-        ))}
+          )
+        })}
       </nav>
 
       <div className="p-3 border-t border-slate-200 text-[10px] text-slate-500">
         <div className="flex items-center justify-between">
           <span>FY 2082/83</span>
-          <span className="text-slate-400">v1.0</span>
+          <button
+            onClick={() => setLang(lang === 'en' ? 'ne' : 'en')}
+            className="px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 font-medium"
+          >
+            {lang === 'en' ? 'ने' : 'EN'}
+          </button>
         </div>
       </div>
     </aside>

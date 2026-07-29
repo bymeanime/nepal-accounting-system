@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { formatNpr, formatNprWithSymbol } from '@/lib/format'
-import { FileText, Search } from 'lucide-react'
+import { FileText, Search, FileDown } from 'lucide-react'
 
 export function InvoicesListView() {
   const [invoices, setInvoices] = useState<any[]>([])
@@ -83,11 +83,12 @@ export function InvoicesListView() {
                 <th className="px-4 py-2 font-medium text-right">VAT</th>
                 <th className="px-4 py-2 font-medium text-right">Total</th>
                 <th className="px-4 py-2 font-medium">Status</th>
+                <th className="px-4 py-2 font-medium">PDF</th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr><td colSpan={9} className="text-center py-12 text-slate-400">No invoices found</td></tr>
+                <tr><td colSpan={10} className="text-center py-12 text-slate-400">No invoices found</td></tr>
               ) : filtered.map(inv => (
                 <tr key={inv.id} className="border-b border-slate-50 hover:bg-slate-50/50">
                   <td className="px-4 py-2 font-mono text-xs">{inv.invoiceNo}</td>
@@ -104,6 +105,16 @@ export function InvoicesListView() {
                     <Badge variant={inv.status === 'PAID' ? 'default' : 'secondary'} className="text-[10px]">
                       {inv.status}
                     </Badge>
+                  </td>
+                  <td className="px-4 py-2">
+                    <a
+                      href={`/api/export/invoice?id=${inv.id}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 hover:underline"
+                    >
+                      <FileDown className="w-3 h-3" />PDF
+                    </a>
                   </td>
                 </tr>
               ))}

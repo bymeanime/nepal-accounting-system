@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from 'react'
 import { Card } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { formatNpr, formatNprWithSymbol } from '@/lib/format'
 import { adToBsString } from '@/lib/nepaliCalendar'
-import { Scale, CheckCircle2, AlertTriangle } from 'lucide-react'
+import { Scale, CheckCircle2, AlertTriangle, FileDown } from 'lucide-react'
 
 interface AccountItem {
   code: string
@@ -76,8 +77,15 @@ export function BalanceSheetView() {
           <p className="text-sm text-slate-500 mt-1">As of {data.asOfBs} BS · NFRS-compliant format</p>
         </div>
         <div className="flex items-center gap-2">
-          <Label className="text-xs">As of (BS)</Label>
-          <Input value={asOfBs} onChange={e => setAsOfBs(e.target.value)} className="w-32" />
+          <div>
+            <Label className="text-xs">As of (BS)</Label>
+            <Input value={asOfBs} onChange={e => setAsOfBs(e.target.value)} className="w-32" />
+          </div>
+          <Button variant="outline" asChild>
+            <a href={`/api/export/balance-sheet?asOfBs=${asOfBs}`} target="_blank" rel="noreferrer">
+              <FileDown className="w-4 h-4 mr-2" />Excel
+            </a>
+          </Button>
         </div>
       </div>
 

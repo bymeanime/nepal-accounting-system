@@ -93,10 +93,14 @@ export function VatReturnView() {
             </SelectContent>
           </Select>
           {data && (
-            <Button variant="outline">
-              <FileDown className="w-4 h-4 mr-2" />
-              Export PDF
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" asChild>
+                <a href={`/api/export/vat-return?period=${period}`} target="_blank" rel="noreferrer">
+                  <FileDown className="w-4 h-4 mr-2" />
+                  Export PDF
+                </a>
+              </Button>
+            </div>
           )}
         </div>
       </div>

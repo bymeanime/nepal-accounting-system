@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { formatNpr, formatNprWithSymbol } from '@/lib/format'
 import { adToBsString } from '@/lib/nepaliCalendar'
-import { FileSpreadsheet, CheckCircle2, AlertTriangle } from 'lucide-react'
+import { FileSpreadsheet, CheckCircle2, AlertTriangle, FileDown } from 'lucide-react'
 
 export function TrialBalanceView() {
   const [asOfBs, setAsOfBs] = useState(adToBsString(new Date()))
@@ -35,8 +35,15 @@ export function TrialBalanceView() {
           <p className="text-sm text-slate-500 mt-1">As of BS date · verifies debit = credit</p>
         </div>
         <div className="flex items-center gap-2">
-          <Label className="text-xs">As of (BS)</Label>
-          <Input value={asOfBs} onChange={e => setAsOfBs(e.target.value)} className="w-32" />
+          <div>
+            <Label className="text-xs">As of (BS)</Label>
+            <Input value={asOfBs} onChange={e => setAsOfBs(e.target.value)} className="w-32" />
+          </div>
+          <Button variant="outline" asChild>
+            <a href={`/api/export/trial-balance?asOfBs=${asOfBs}`} target="_blank" rel="noreferrer">
+              <FileDown className="w-4 h-4 mr-2" />Export Excel
+            </a>
+          </Button>
         </div>
       </div>
 

@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from 'react'
 import { Card } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { formatNpr, formatNprWithSymbol } from '@/lib/format'
 import { getFiscalYear, adToBsString } from '@/lib/nepaliCalendar'
-import { FileText, TrendingUp, TrendingDown, PiggyBank } from 'lucide-react'
+import { FileText, TrendingUp, TrendingDown, PiggyBank, FileDown } from 'lucide-react'
 
 interface AccountLine {
   code: string
@@ -79,7 +80,7 @@ export function ProfitLossView() {
           </h1>
           <p className="text-sm text-slate-500 mt-1">NFRS-compliant · {period.fiscalYear} BS fiscal year</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-end gap-2">
           <div>
             <Label className="text-xs">From (BS)</Label>
             <Input value={fromBs} onChange={e => setFromBs(e.target.value)} className="w-32" />
@@ -88,6 +89,11 @@ export function ProfitLossView() {
             <Label className="text-xs">To (BS)</Label>
             <Input value={toBs} onChange={e => setToBs(e.target.value)} className="w-32" />
           </div>
+          <Button variant="outline" asChild>
+            <a href={`/api/export/profit-loss?fromBs=${fromBs}&toBs=${toBs}`} target="_blank" rel="noreferrer">
+              <FileDown className="w-4 h-4 mr-2" />Excel
+            </a>
+          </Button>
         </div>
       </div>
 

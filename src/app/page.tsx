@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import { I18nProvider } from '@/components/accounting/i18n-provider'
 import { Sidebar } from '@/components/accounting/sidebar'
 import { DashboardView } from '@/components/accounting/views/dashboard-view'
 import { ChartOfAccountsView } from '@/components/accounting/views/chart-of-accounts-view'
@@ -14,6 +15,11 @@ import { ProfitLossView } from '@/components/accounting/views/profit-loss-view'
 import { BalanceSheetView } from '@/components/accounting/views/balance-sheet-view'
 import { PayrollView } from '@/components/accounting/views/payroll-view'
 import { InvoicesListView } from '@/components/accounting/views/invoices-list-view'
+import { ItemsView } from '@/components/accounting/views/items-view'
+import { StockMovementsView } from '@/components/accounting/views/stock-movements-view'
+import { FixedAssetsView } from '@/components/accounting/views/fixed-assets-view'
+import { FxRatesView } from '@/components/accounting/views/fx-rates-view'
+import { TenantsView } from '@/components/accounting/views/tenants-view'
 
 export type ViewKey =
   | 'dashboard'
@@ -23,13 +29,18 @@ export type ViewKey =
   | 'invoices-list'
   | 'purchase-bill'
   | 'parties'
+  | 'items'
+  | 'stock-movements'
+  | 'fixed-assets'
+  | 'fx-rates'
+  | 'tenants'
   | 'vat-return'
   | 'trial-balance'
   | 'profit-loss'
   | 'balance-sheet'
   | 'payroll'
 
-export default function Home() {
+function App() {
   const [view, setView] = useState<ViewKey>('dashboard')
   const [todayBs, setTodayBs] = useState<string>('')
 
@@ -49,6 +60,11 @@ export default function Home() {
       case 'invoices-list': return <InvoicesListView />
       case 'purchase-bill': return <PurchaseBillView />
       case 'parties': return <PartiesView />
+      case 'items': return <ItemsView />
+      case 'stock-movements': return <StockMovementsView />
+      case 'fixed-assets': return <FixedAssetsView />
+      case 'fx-rates': return <FxRatesView />
+      case 'tenants': return <TenantsView />
       case 'vat-return': return <VatReturnView />
       case 'trial-balance': return <TrialBalanceView />
       case 'profit-loss': return <ProfitLossView />
@@ -60,7 +76,6 @@ export default function Home() {
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-50 via-white to-slate-100">
-      {/* Top bar with Nepali flag colors */}
       <div className="h-1 bg-gradient-to-r from-blue-600 via-red-600 to-blue-900" />
 
       <div className="flex flex-1 min-h-0">
@@ -84,5 +99,13 @@ export default function Home() {
         </span>
       </footer>
     </div>
+  )
+}
+
+export default function Home() {
+  return (
+    <I18nProvider>
+      <App />
+    </I18nProvider>
   )
 }
