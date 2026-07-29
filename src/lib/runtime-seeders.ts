@@ -4,6 +4,7 @@
 // ============================================================
 
 import { PrismaClient } from '@prisma/client'
+import '@/lib/db-server' // ensure SQLite file exists
 import { NEPAL_CHART_OF_ACCOUNTS } from '@/lib/seedChartOfAccounts'
 import { getFiscalYear, adToBsString, bsStringToAd } from '@/lib/nepaliCalendar'
 import {
