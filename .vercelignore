@@ -1,0 +1,12 @@
+# Files to exclude from Vercel deployment
+scripts/
+tests/
+research_*.json
+*.md
+!README.md
+download/
+dev.log
+server.log
+.git
+.github
+bun.lock
