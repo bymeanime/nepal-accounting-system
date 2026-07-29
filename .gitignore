@@ -42,6 +42,8 @@ db/*.db
 db/*.db-journal
 db/*.db-wal
 db/*.db-shm
+# Exception: bundled seed DB for Vercel deployment (contains demo data only)
+!db/nepal-acct-seeded.db
 
 # Build artifacts and local-only files
 *.log
