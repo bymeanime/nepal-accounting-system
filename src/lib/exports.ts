@@ -6,6 +6,7 @@
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import ExcelJS from 'exceljs'
+import QRCode from 'qrcode'
 import { formatNpr } from './format'
 
 // ============================================================
@@ -184,7 +185,7 @@ export interface InvoicePdfData {
   }>
 }
 
-export function generateInvoicePdf(data: InvoicePdfData): Buffer {
+export async function generateInvoicePdf(data: InvoicePdfData): Promise<Buffer> {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
   const pageWidth = doc.internal.pageSize.getWidth()
   const { tenant, invoice, lines } = data
@@ -300,17 +301,23 @@ export function generateInvoicePdf(data: InvoicePdfData): Buffer {
   doc.text(`Rs ${formatNpr(invoice.totalAmount)}`, pageWidth - 10, y + 1, { align: 'right' })
   doc.setTextColor(0, 0, 0)
 
-  // QR placeholder (bottom left)
+  // QR code (bottom left) — real QR image per IRD Rule 17
   y += 15
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(8)
   doc.text('Scan QR for verification:', 10, y)
-  doc.rect(10, y + 2, 35, 35)
-  doc.setFontSize(7)
   if (invoice.qrData) {
-    // Draw a fake QR placeholder (real QR generation would need extra setup)
-    const lines = invoice.qrData.slice(0, 60).split(',')
-    lines.forEach((line, i) => doc.text(line, 12, y + 8 + i * 3))
+    try {
+      const qrDataUrl = await QRCode.toDataURL(invoice.qrData, { width: 120, margin: 0 })
+      doc.addImage(qrDataUrl, 'PNG', 10, y + 2, 35, 35)
+    } catch (err) {
+      // Fallback: draw placeholder rectangle with text
+      doc.rect(10, y + 2, 35, 35)
+      doc.setFontSize(7)
+      doc.text('QR Error', 15, y + 20)
+    }
+  } else {
+    doc.rect(10, y + 2, 35, 35)
   }
 
   // Notes + signature

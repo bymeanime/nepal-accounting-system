@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
   const tenant = await db.tenant.findUnique({ where: { id: DEMO_TENANT_ID } })
   if (!tenant) return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
 
-  const pdf = generateInvoicePdf({
+  const pdf = await generateInvoicePdf({
     tenant: {
       name: tenant.name,
       pan: tenant.pan || '',
@@ -73,7 +73,7 @@ export async function GET(req: NextRequest) {
   })
 
   const safeName = invoice.invoiceNo.replace(/[^a-zA-Z0-9-]/g, '_')
-  return new NextResponse(pdf, {
+  return new NextResponse(new Uint8Array(pdf), {
     headers: {
       'Content-Type': 'application/pdf',
       'Content-Disposition': `inline; filename="${safeName}.pdf"`,

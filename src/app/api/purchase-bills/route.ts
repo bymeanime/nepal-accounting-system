@@ -23,15 +23,16 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const body = await req.json()
-  const { bsDate, partyId, vendorPan, vendorBillNo, lines, tdsSection, notes, dueDate } = body
+  try {
+    const body = await req.json()
+    const { bsDate, partyId, vendorPan, vendorBillNo, lines, tdsSection, notes, dueDate } = body
 
-  if (!bsDate || !isValidBsDate(bsDate)) {
-    return NextResponse.json({ error: 'Invalid BS date' }, { status: 400 })
-  }
-  if (!partyId) {
-    return NextResponse.json({ error: 'Party (vendor) required' }, { status: 400 })
-  }
+    if (!bsDate || !isValidBsDate(bsDate)) {
+      return NextResponse.json({ error: 'Invalid BS date' }, { status: 400 })
+    }
+    if (!partyId) {
+      return NextResponse.json({ error: 'Party (vendor) required' }, { status: 400 })
+    }
 
   const adDate = bsStringToAd(bsDate)
   const party = await db.party.findFirst({ where: { id: partyId, tenantId: DEMO_TENANT_ID } })
@@ -54,7 +55,10 @@ export async function POST(req: NextRequest) {
   let tdsAmount = 0
   const effectiveTdsSection = tdsSection || party.tdsSection
   if (effectiveTdsSection) {
-    const tdsCalc = await calculateTds(DEMO_TENANT_ID, effectiveTdsSection, calc.taxableAmount, bsDate)
+    // TDS base = gross payment EXCLUDING VAT (includes exempt + zero-rated amounts)
+    // This is critical for VAT-exempt payments like rent — TDS still applies on the gross
+    const tdsBase = calc.taxableAmount + calc.exemptAmount + calc.zeroRatedAmount
+    const tdsCalc = await calculateTds(DEMO_TENANT_ID, effectiveTdsSection, tdsBase, bsDate)
     if (tdsCalc.isTdsApplicable) {
       tdsRate = tdsCalc.rate
       tdsAmount = tdsCalc.tdsAmount
@@ -189,4 +193,12 @@ export async function POST(req: NextRequest) {
   })
 
   return NextResponse.json({ bill })
+  } catch (err: any) {
+    console.error('[purchase-bills] POST error:', err)
+    return NextResponse.json({
+      error: 'Failed to create purchase bill',
+      detail: err.message,
+      code: err.code,
+    }, { status: 500 })
+  }
 }

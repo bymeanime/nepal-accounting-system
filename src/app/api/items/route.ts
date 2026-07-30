@@ -20,15 +20,18 @@ export async function GET() {
     const movements = await db.inventoryMovement.findMany({
       where: { tenantId: DEMO_TENANT_ID, itemId: item.id },
     })
-    let quantity = Number(item.openingStock)
-    let value = Number(item.openingValue)
+    // Compute stock from movements ONLY (openingStock on Item is just metadata,
+    // the OPENING movement is the source of truth)
+    let quantity = 0
+    let value = 0
     for (const m of movements) {
       if (m.type === 'IN' || m.type === 'OPENING') {
         quantity += Number(m.quantity)
         value += Number(m.value)
       } else if (m.type === 'OUT') {
+        // OUT movements have negative quantity stored
+        const movedQty = Math.abs(Number(m.quantity))
         const avgCost = quantity > 0 ? value / quantity : Number(item.purchasePrice)
-        const movedQty = Number(m.quantity)
         quantity -= movedQty
         value -= avgCost * movedQty
       } else if (m.type === 'ADJUSTMENT') {

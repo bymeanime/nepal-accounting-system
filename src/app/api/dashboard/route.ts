@@ -89,19 +89,19 @@ async function buildDashboardResponse(tenant: any) {
   const arBalance = arAccount ? await sumAccountBalance([arAccount.id]) : 0
 
   const apAccount = await db.account.findFirst({ where: { tenantId: tenant.id, code: '2001' } })
-  const apBalance = apAccount ? await sumAccountBalance([apAccount.id]) : 0
+  const apBalance = apAccount ? Math.abs(await sumAccountBalance([apAccount.id])) : 0
 
   const outputVatAccount = await db.account.findFirst({ where: { tenantId: tenant.id, code: '2003' } })
-  const outputVat = outputVatAccount ? await sumAccountBalance([outputVatAccount.id]) : 0
+  const outputVat = outputVatAccount ? Math.abs(await sumAccountBalance([outputVatAccount.id])) : 0
 
   const inputVatAccount = await db.account.findFirst({ where: { tenantId: tenant.id, code: '1040' } })
-  const inputVat = inputVatAccount ? await sumAccountBalance([inputVatAccount.id]) : 0
+  const inputVat = inputVatAccount ? Math.abs(await sumAccountBalance([inputVatAccount.id])) : 0
 
   const tdsAccount = await db.account.findFirst({ where: { tenantId: tenant.id, code: '2004' } })
-  const tdsPayable = tdsAccount ? await sumAccountBalance([tdsAccount.id]) : 0
+  const tdsPayable = tdsAccount ? Math.abs(await sumAccountBalance([tdsAccount.id])) : 0
 
   const ssfAccount = await db.account.findFirst({ where: { tenantId: tenant.id, code: '2005' } })
-  const ssfPayable = ssfAccount ? await sumAccountBalance([ssfAccount.id]) : 0
+  const ssfPayable = ssfAccount ? Math.abs(await sumAccountBalance([ssfAccount.id])) : 0
 
   const recentVouchers = await db.voucher.findMany({
     where: { tenantId: tenant.id, status: 'POSTED' },

@@ -106,7 +106,7 @@ export const translations = {
   ssfEmployee: { en: 'SSF Employee (11%)', ne: 'SSF कर्मचारी (११%)' },
   ssfEmployer: { en: 'SSF Employer (20%)', ne: 'SSF रोजगारदाता (२०%)' },
   tds: { en: 'TDS', ne: 'TDS' },
-  payroll: { en: 'Payroll', ne: 'तलब' },
+  payrollLabel: { en: 'Payroll', ne: 'तलब' },
 } as const
 
 export type TranslationKey = keyof typeof translations

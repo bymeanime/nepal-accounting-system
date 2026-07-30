@@ -27,34 +27,42 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const body = await req.json()
-  const { bsDate, partyId, panBuyer, invoiceType, lines, notes, dueDate } = body
+  try {
+    const body = await req.json()
+    const { bsDate, partyId, panBuyer, invoiceType, lines, notes, dueDate } = body
 
-  if (!bsDate || !isValidBsDate(bsDate)) {
-    return NextResponse.json({ error: 'Invalid BS date' }, { status: 400 })
-  }
-  if (!partyId) {
-    return NextResponse.json({ error: 'Party is required' }, { status: 400 })
-  }
-  if (!lines || !Array.isArray(lines) || lines.length === 0) {
-    return NextResponse.json({ error: 'At least one line item required' }, { status: 400 })
-  }
+    if (!bsDate || !isValidBsDate(bsDate)) {
+      return NextResponse.json({ error: 'Invalid BS date' }, { status: 400 })
+    }
+    if (!partyId) {
+      return NextResponse.json({ error: 'Party is required' }, { status: 400 })
+    }
+    if (!lines || !Array.isArray(lines) || lines.length === 0) {
+      return NextResponse.json({ error: 'At least one line item required' }, { status: 400 })
+    }
 
   const adDate = bsStringToAd(bsDate)
   const party = await db.party.findFirst({ where: { id: partyId, tenantId: DEMO_TENANT_ID } })
   if (!party) return NextResponse.json({ error: 'Party not found' }, { status: 400 })
 
-  const fiscalYear = await db.fiscalYear.findFirst({
-    where: { tenantId: DEMO_TENANT_ID, adStart: { lte: adDate }, adEnd: { gte: adDate } },
-  })
-
-  // Compute VAT
+  // Compute VAT to check ABBREVIATED invoice limit
   const calc = calculateVat(lines.map((l: any) => ({
     amount: Number(l.amount),
     vatRate: Number(l.vatRate || 13),
     isExempt: l.isExempt || invoiceType === 'EXEMPT',
     isZeroRated: l.isZeroRated || invoiceType === 'EXPORT',
   })))
+
+  // Enforce ABBREVIATED invoice limit (Nepal VAT Rule 17: max NPR 5,000 per invoice for retail)
+  if (invoiceType === 'ABBREVIATED' && calc.totalAmount > 5000) {
+    return NextResponse.json({
+      error: `Abbreviated tax invoice cannot exceed NPR 5,000 per Nepal VAT Rule 17. Current total: NPR ${calc.totalAmount}. Please use TAX_INVOICE type instead.`,
+    }, { status: 400 })
+  }
+
+  const fiscalYear = await db.fiscalYear.findFirst({
+    where: { tenantId: DEMO_TENANT_ID, adStart: { lte: adDate }, adEnd: { gte: adDate } },
+  })
 
   // Generate invoice no: INV-YYYYMMDD-XXX
   const datePart = bsDate.replace(/-/g, '')
@@ -98,16 +106,22 @@ export async function POST(req: NextRequest) {
       notes,
       qrData,
       lines: {
-        create: lines.map((l: any) => ({
-          description: l.description,
-          quantity: Number(l.quantity || 1),
-          unit: l.unit || 'PCS',
-          rate: Number(l.rate || 0),
-          taxableAmount: Number(l.amount),
-          vatRate: Number(l.vatRate || 13),
-          vatAmount: (Number(l.amount) * Number(l.vatRate || 13)) / 100,
-          totalAmount: Number(l.amount) + (Number(l.amount) * Number(l.vatRate || 13)) / 100,
-        })),
+        create: lines.map((l: any) => {
+          // For EXPORT and EXEMPT invoice types, line-level VAT must be 0
+          const lineVatRate = (invoiceType === 'EXPORT' || invoiceType === 'EXEMPT' || l.isExempt || l.isZeroRated) ? 0 : Number(l.vatRate || 13)
+          const lineTaxableAmount = (invoiceType === 'EXPORT' || invoiceType === 'EXEMPT') ? 0 : Number(l.amount)
+          const lineVatAmount = (lineTaxableAmount * lineVatRate) / 100
+          return {
+            description: l.description,
+            quantity: Number(l.quantity || 1),
+            unit: l.unit || 'PCS',
+            rate: Number(l.rate || 0),
+            taxableAmount: lineTaxableAmount,
+            vatRate: lineVatRate,
+            vatAmount: lineVatAmount,
+            totalAmount: lineTaxableAmount + lineVatAmount + (invoiceType === 'EXPORT' ? Number(l.amount) : 0) + (invoiceType === 'EXEMPT' ? Number(l.amount) : 0),
+          }
+        }),
       },
     },
     include: { lines: true, party: true },
@@ -196,4 +210,12 @@ export async function POST(req: NextRequest) {
   })
 
   return NextResponse.json({ invoice })
+  } catch (err: any) {
+    console.error('[invoices] POST error:', err)
+    return NextResponse.json({
+      error: 'Failed to create invoice',
+      detail: err.message,
+      code: err.code,
+    }, { status: 500 })
+  }
 }
