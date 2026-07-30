@@ -458,6 +458,27 @@ CREATE TABLE IF NOT EXISTS AuditLog (
   FOREIGN KEY (tenantId) REFERENCES Tenant(id) ON DELETE CASCADE,
   FOREIGN KEY (userId) REFERENCES User(id)
 );
+
+-- Indexes for performance (critical for multi-tenant queries)
+CREATE INDEX IF NOT EXISTS idx_voucher_tenant_date ON Voucher(tenantId, adDate);
+CREATE INDEX IF NOT EXISTS idx_voucher_tenant_status ON Voucher(tenantId, status);
+CREATE INDEX IF NOT EXISTS idx_voucherline_account ON VoucherLine(accountId);
+CREATE INDEX IF NOT EXISTS idx_voucherline_voucher ON VoucherLine(voucherId);
+CREATE INDEX IF NOT EXISTS idx_invoice_tenant_date ON Invoice(tenantId, bsDate);
+CREATE INDEX IF NOT EXISTS idx_invoice_tenant_status ON Invoice(tenantId, status);
+CREATE INDEX IF NOT EXISTS idx_purchasebill_tenant_date ON PurchaseBill(tenantId, bsDate);
+CREATE INDEX IF NOT EXISTS idx_purchasebill_tenant_status ON PurchaseBill(tenantId, status);
+CREATE INDEX IF NOT EXISTS idx_account_tenant_type ON Account(tenantId, type);
+CREATE INDEX IF NOT EXISTS idx_party_tenant_type ON Party(tenantId, type);
+CREATE INDEX IF NOT EXISTS idx_item_tenant ON Item(tenantId);
+CREATE INDEX IF NOT EXISTS idx_inventorymovement_tenant_item ON InventoryMovement(tenantId, itemId);
+CREATE INDEX IF NOT EXISTS idx_inventorymovement_ref ON InventoryMovement(refType, refId);
+CREATE INDEX IF NOT EXISTS idx_employee_tenant ON Employee(tenantId);
+CREATE INDEX IF NOT EXISTS idx_payrollrun_tenant_month ON PayrollRun(tenantId, bsMonth);
+CREATE INDEX IF NOT EXISTS idx_fixedasset_tenant ON FixedAsset(tenantId);
+CREATE INDEX IF NOT EXISTS idx_taxrule_tenant_type ON TaxRule(tenantId, taxType);
+CREATE INDEX IF NOT EXISTS idx_auditlog_tenant ON AuditLog(tenantId, createdAt);
+CREATE INDEX IF NOT EXISTS idx_fiscalyear_tenant ON FiscalYear(tenantId, bsYearStart);
 `
 
 /**

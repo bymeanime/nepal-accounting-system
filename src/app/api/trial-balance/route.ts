@@ -1,79 +1,77 @@
 // ============================================================
-// API: Trial Balance
-// GET /api/trial-balance?asOfBs=2083-03-15
+// API: Trial Balance (optimized — 2 queries instead of ~97)
+// GET /api/trial-balance?asOfBs=2083-03-27
 // ============================================================
 
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import '@/lib/db-server'
+import { isSchemaInitialized, initializeSchema } from '@/lib/schema-init'
 import { bsStringToAd, isValidBsDate, adToBsString, getFiscalYear } from '@/lib/nepaliCalendar'
+import { computeAccountBalances } from '@/lib/account-balances'
 
 const DEMO_TENANT_ID = 'demo-tenant'
 
+async function ensureSchema() {
+  const ready = await isSchemaInitialized()
+  if (!ready) await initializeSchema()
+}
+
 export async function GET(req: NextRequest) {
-  const { searchParams } = new URL(req.url)
-  const asOfBsParam = searchParams.get('asOfBs')
-  const asOfBs = asOfBsParam && isValidBsDate(asOfBsParam) ? asOfBsParam : adToBsString(new Date())
-  const asOfAd = bsStringToAd(asOfBs)
+  try {
+    await ensureSchema()
+    const { searchParams } = new URL(req.url)
+    const asOfBsParam = searchParams.get('asOfBs')
+    const asOfBs = asOfBsParam && isValidBsDate(asOfBsParam) ? asOfBsParam : adToBsString(new Date())
+    const asOfAd = bsStringToAd(asOfBs)
+    const fy = getFiscalYear(new Date(asOfAd))
 
-  const fy = getFiscalYear(new Date(asOfAd))
+    // 2 queries total — was 97+ before
+    const balances = await computeAccountBalances(DEMO_TENANT_ID, { to: asOfAd }, true)
 
-  const accounts = await db.account.findMany({
-    where: { tenantId: DEMO_TENANT_ID, isGroup: false, isActive: true },
-    orderBy: { code: 'asc' },
-  })
+    const lines: any[] = []
+    let totalDebit = 0, totalCredit = 0
 
-  const lines: any[] = []
-  let totalDebit = 0, totalCredit = 0
+    for (const [, info] of balances) {
+      if (info.isGroup) continue // skip group accounts in trial balance
 
-  for (const acc of accounts) {
-    const voucherLines = await db.voucherLine.findMany({
-      where: {
-        accountId: acc.id,
-        voucher: {
-          tenantId: DEMO_TENANT_ID,
-          status: 'POSTED',
-          adDate: { lte: asOfAd },
-        },
-      },
-      select: { debit: true, credit: true },
-    })
-    let debit = Number(acc.openingBalance)
-    let credit = 0
-    for (const vl of voucherLines) {
-      debit += Number(vl.debit)
-      credit += Number(vl.credit)
-    }
-    const netDebit = debit - credit
-    if (Math.abs(netDebit) < 0.01 && debit === 0) continue // skip zero accounts
+      // Skip zero-balance accounts
+      if (Math.abs(info.balance) < 0.01 && info.openingBalance === 0) continue
 
-    // ASSET/EXPENSE = debit balance; LIABILITY/EQUITY/INCOME = credit balance
-    let displayDebit = 0, displayCredit = 0
-    if (netDebit >= 0) {
-      displayDebit = netDebit
-      totalDebit += netDebit
-    } else {
-      displayCredit = -netDebit
-      totalCredit += -netDebit
+      let displayDebit = 0, displayCredit = 0
+      if (info.balance >= 0) {
+        displayDebit = info.balance
+        totalDebit += info.balance
+      } else {
+        displayCredit = Math.abs(info.balance)
+        totalCredit += Math.abs(info.balance)
+      }
+
+      lines.push({
+        code: info.code,
+        name: info.name,
+        nameNp: info.nameNp,
+        type: info.type,
+        subType: info.subType,
+        debit: displayDebit,
+        credit: displayCredit,
+      })
     }
 
-    lines.push({
-      code: acc.code,
-      name: acc.name,
-      nameNp: acc.nameNp,
-      type: acc.type,
-      subType: acc.subType,
-      debit: displayDebit,
-      credit: displayCredit,
+    // Sort by code
+    lines.sort((a, b) => a.code.localeCompare(b.code))
+
+    return NextResponse.json({
+      asOfBs,
+      asOfAd: asOfAd.toISOString().split('T')[0],
+      fiscalYear: fy.label,
+      lines,
+      totalDebit,
+      totalCredit,
+      isBalanced: Math.abs(totalDebit - totalCredit) < 0.01,
     })
+  } catch (err: any) {
+    console.error('[trial-balance] error:', err)
+    return NextResponse.json({ error: 'Failed to compute trial balance', detail: err.message }, { status: 500 })
   }
-
-  return NextResponse.json({
-    asOfBs,
-    asOfAd: asOfAd.toISOString().split('T')[0],
-    fiscalYear: fy.label,
-    lines,
-    totalDebit,
-    totalCredit,
-    isBalanced: Math.abs(totalDebit - totalCredit) < 0.01,
-  })
 }

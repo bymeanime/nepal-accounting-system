@@ -62,52 +62,79 @@ async function buildDashboardResponse(tenant: any) {
     where: { tenantId: tenant.id, bsYearStart: fy.bsYearStart },
   })
 
-  const cashBankAccounts = await db.account.findMany({
-    where: { tenantId: tenant.id, isCash: true },
-  })
-  const bankAccounts = await db.account.findMany({
-    where: { tenantId: tenant.id, isBank: true },
-  })
+  // === OPTIMIZED: Single groupBy query for ALL account balances ===
+  // Instead of 170+ queries (one per account), we do 2 queries total:
+  // 1. Sum all voucher lines grouped by accountId
+  // 2. Get all account opening balances
+  const [balances, accounts] = await Promise.all([
+    db.voucherLine.groupBy({
+      by: ['accountId'],
+      where: { voucher: { tenantId: tenant.id, status: 'POSTED' } },
+      _sum: { debit: true, credit: true },
+    }),
+    db.account.findMany({
+      where: { tenantId: tenant.id, isActive: true },
+      select: { id: true, code: true, type: true, isCash: true, isBank: true, isGroup: true, openingBalance: true, name: true },
+    }),
+  ])
 
-  async function sumAccountBalance(accountIds: string[]): Promise<number> {
-    if (accountIds.length === 0) return 0
-    const lines = await db.voucherLine.findMany({
-      where: { accountId: { in: accountIds }, voucher: { tenantId: tenant.id, status: 'POSTED' } },
-      select: { debit: true, credit: true },
-    })
-    let bal = 0
-    for (const l of lines) bal += Number(l.debit) - Number(l.credit)
-    const accounts = await db.account.findMany({ where: { id: { in: accountIds } }, select: { openingBalance: true } })
-    for (const a of accounts) bal += Number(a.openingBalance)
-    return bal
+  // Build lookup maps
+  const accountById = new Map(accounts.map(a => [a.id, a]))
+  const accountByCode = new Map(accounts.map(a => [a.code, a]))
+  const balanceByAccount = new Map<string, number>()
+
+  for (const b of balances) {
+    const acc = accountById.get(b.accountId)
+    if (!acc) continue
+    const opening = Number(acc.openingBalance)
+    const netMovement = Number(b._sum.debit || 0) - Number(b._sum.credit || 0)
+    balanceByAccount.set(b.accountId, opening + netMovement)
   }
 
-  const cashBalance = await sumAccountBalance(cashBankAccounts.map(a => a.id))
-  const bankBalance = await sumAccountBalance(bankAccounts.map(a => a.id))
+  // Helper to get balance by account code
+  function balanceByCode(code: string): number {
+    const acc = accountByCode.get(code)
+    if (!acc) return 0
+    return balanceByAccount.get(acc.id) || 0
+  }
 
-  const arAccount = await db.account.findFirst({ where: { tenantId: tenant.id, code: '1010' } })
-  const arBalance = arAccount ? await sumAccountBalance([arAccount.id]) : 0
+  // Helper to sum balances for a set of accounts (by filter)
+  function sumBalances(filter: (acc: any) => boolean): number {
+    let total = 0
+    for (const acc of accounts) {
+      if (filter(acc)) {
+        total += balanceByAccount.get(acc.id) || 0
+      }
+    }
+    return total
+  }
 
-  const apAccount = await db.account.findFirst({ where: { tenantId: tenant.id, code: '2001' } })
-  const apBalance = apAccount ? Math.abs(await sumAccountBalance([apAccount.id])) : 0
+  // Compute all dashboard metrics from the in-memory maps
+  const cashBalance = sumBalances(a => a.isCash)
+  const bankBalance = sumBalances(a => a.isBank)
+  const arBalance = balanceByCode('1010')
+  const apBalance = Math.abs(balanceByCode('2001'))
+  const outputVat = Math.abs(balanceByCode('2003'))
+  const inputVat = Math.abs(balanceByCode('1040'))
+  const tdsPayable = Math.abs(balanceByCode('2004'))
+  const ssfPayable = Math.abs(balanceByCode('2005'))
 
-  const outputVatAccount = await db.account.findFirst({ where: { tenantId: tenant.id, code: '2003' } })
-  const outputVat = outputVatAccount ? Math.abs(await sumAccountBalance([outputVatAccount.id])) : 0
-
-  const inputVatAccount = await db.account.findFirst({ where: { tenantId: tenant.id, code: '1040' } })
-  const inputVat = inputVatAccount ? Math.abs(await sumAccountBalance([inputVatAccount.id])) : 0
-
-  const tdsAccount = await db.account.findFirst({ where: { tenantId: tenant.id, code: '2004' } })
-  const tdsPayable = tdsAccount ? Math.abs(await sumAccountBalance([tdsAccount.id])) : 0
-
-  const ssfAccount = await db.account.findFirst({ where: { tenantId: tenant.id, code: '2005' } })
-  const ssfPayable = ssfAccount ? Math.abs(await sumAccountBalance([ssfAccount.id])) : 0
+  // FY income = sum of all INCOME account balances (credit balances → negative, so abs)
+  let fyIncome = 0
+  let fyExpense = 0
+  for (const acc of accounts) {
+    if (acc.isGroup) continue
+    const bal = balanceByAccount.get(acc.id) || 0
+    if (acc.type === 'INCOME') fyIncome += Math.abs(bal)
+    if (acc.type === 'EXPENSE') fyExpense += Math.abs(bal)
+  }
+  const netProfit = fyIncome - fyExpense
 
   const recentVouchers = await db.voucher.findMany({
     where: { tenantId: tenant.id, status: 'POSTED' },
     orderBy: { adDate: 'desc' },
     take: 8,
-    include: { lines: { include: { account: true } } },
+    select: { id: true, voucherNo: true, voucherType: true, bsDate: true, narration: true, totalDebit: true, totalCredit: true, status: true },
   })
 
   const recentInvoices = await db.invoice.findMany({
@@ -116,26 +143,6 @@ async function buildDashboardResponse(tenant: any) {
     take: 5,
     include: { party: true },
   })
-
-  const incomeAccounts = await db.account.findMany({
-    where: { tenantId: tenant.id, type: 'INCOME', isGroup: false },
-  })
-  let fyIncome = 0
-  for (const acc of incomeAccounts) {
-    const bal = await sumAccountBalance([acc.id])
-    fyIncome += Math.abs(bal)
-  }
-
-  const expenseAccounts = await db.account.findMany({
-    where: { tenantId: tenant.id, type: 'EXPENSE', isGroup: false },
-  })
-  let fyExpense = 0
-  for (const acc of expenseAccounts) {
-    const bal = await sumAccountBalance([acc.id])
-    fyExpense += Math.abs(bal)
-  }
-
-  const netProfit = fyIncome - fyExpense
 
   return {
     tenant: {
