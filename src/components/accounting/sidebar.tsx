@@ -24,6 +24,10 @@ import {
   DollarSign,
   Building,
   Settings,
+  Waves,
+  History,
+  Undo,
+  ArrowLeftRight,
 } from 'lucide-react'
 
 interface SidebarProps {
@@ -34,7 +38,7 @@ interface SidebarProps {
 
 interface NavItem {
   key: ViewKey
-  labelKey: 'dashboard' | 'newInvoice' | 'salesInvoices' | 'purchaseBills' | 'journalVouchers' | 'parties' | 'chartOfAccounts' | 'items' | 'stockMovements' | 'fixedAssets' | 'vatReturn' | 'payroll' | 'trialBalance' | 'profitLoss' | 'balanceSheet' | 'fxRates' | 'tenants' | 'settings'
+  labelKey: 'dashboard' | 'newInvoice' | 'salesInvoices' | 'purchaseBills' | 'journalVouchers' | 'parties' | 'chartOfAccounts' | 'items' | 'stockMovements' | 'fixedAssets' | 'vatReturn' | 'payroll' | 'trialBalance' | 'profitLoss' | 'balanceSheet' | 'fxRates' | 'tenants' | 'settings' | 'creditNotes' | 'debitNotes' | 'cashFlow' | 'auditLog'
   icon: React.ComponentType<{ className?: string }>
   group: 'navOverview' | 'navTransactions' | 'navMaster' | 'navInventory' | 'navTaxCompliance' | 'navReports'
 }
@@ -44,7 +48,9 @@ const NAV: NavItem[] = [
 
   { key: 'invoice-entry', labelKey: 'newInvoice', icon: Receipt, group: 'navTransactions' },
   { key: 'invoices-list', labelKey: 'salesInvoices', icon: InvoiceIcon, group: 'navTransactions' },
+  { key: 'credit-notes', labelKey: 'creditNotes', icon: Undo, group: 'navTransactions' },
   { key: 'purchase-bill', labelKey: 'purchaseBills', icon: ShoppingCart, group: 'navTransactions' },
+  { key: 'debit-notes', labelKey: 'debitNotes', icon: ArrowLeftRight, group: 'navTransactions' },
   { key: 'vouchers', labelKey: 'journalVouchers', icon: BookOpen, group: 'navTransactions' },
   { key: 'parties', labelKey: 'parties', icon: Users, group: 'navTransactions' },
 
@@ -62,6 +68,8 @@ const NAV: NavItem[] = [
   { key: 'trial-balance', labelKey: 'trialBalance', icon: FileSpreadsheet, group: 'navReports' },
   { key: 'profit-loss', labelKey: 'profitLoss', icon: FileText, group: 'navReports' },
   { key: 'balance-sheet', labelKey: 'balanceSheet', icon: Scale, group: 'navReports' },
+  { key: 'cash-flow', labelKey: 'cashFlow', icon: Waves, group: 'navReports' },
+  { key: 'audit-log', labelKey: 'auditLog', icon: History, group: 'navReports' },
 ]
 
 export function Sidebar({ currentView, onNavigate, todayBs }: SidebarProps) {

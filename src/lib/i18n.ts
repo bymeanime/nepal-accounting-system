@@ -53,6 +53,10 @@ export const translations = {
   fxRates: { en: 'FX Rates (NRB)', ne: 'विदेशी मुद्रा दर (नेरा)' },
   tenants: { en: 'Companies', ne: 'कम्पनीहरू' },
   settings: { en: 'Settings', ne: 'सेटिङ्स' },
+  creditNotes: { en: 'Credit Notes', ne: 'क्रेडिट नोट' },
+  debitNotes: { en: 'Debit Notes', ne: 'डेबिट नोट' },
+  cashFlow: { en: 'Cash Flow', ne: 'नगद प्रवाह' },
+  auditLog: { en: 'Audit Log', ne: 'अडिट लग' },
 
   // Dashboard
   cashInHand: { en: 'Cash in Hand', ne: 'नगद' },

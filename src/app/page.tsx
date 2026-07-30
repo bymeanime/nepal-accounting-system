@@ -21,6 +21,10 @@ import { FixedAssetsView } from '@/components/accounting/views/fixed-assets-view
 import { FxRatesView } from '@/components/accounting/views/fx-rates-view'
 import { TenantsView } from '@/components/accounting/views/tenants-view'
 import { SettingsView } from '@/components/accounting/views/settings-view'
+import { CashFlowView } from '@/components/accounting/views/cash-flow-view'
+import { CreditNotesView } from '@/components/accounting/views/credit-notes-view'
+import { DebitNotesView } from '@/components/accounting/views/debit-notes-view'
+import { AuditLogView } from '@/components/accounting/views/audit-log-view'
 
 export type ViewKey =
   | 'dashboard'
@@ -36,11 +40,15 @@ export type ViewKey =
   | 'fx-rates'
   | 'tenants'
   | 'settings'
+  | 'credit-notes'
+  | 'debit-notes'
   | 'vat-return'
   | 'trial-balance'
   | 'profit-loss'
   | 'balance-sheet'
+  | 'cash-flow'
   | 'payroll'
+  | 'audit-log'
 
 function App() {
   const [view, setView] = useState<ViewKey>('dashboard')
@@ -72,7 +80,11 @@ function App() {
       case 'trial-balance': return <TrialBalanceView />
       case 'profit-loss': return <ProfitLossView />
       case 'balance-sheet': return <BalanceSheetView />
+      case 'cash-flow': return <CashFlowView />
       case 'payroll': return <PayrollView />
+      case 'credit-notes': return <CreditNotesView />
+      case 'debit-notes': return <DebitNotesView />
+      case 'audit-log': return <AuditLogView />
       default: return <DashboardView onNavigate={setView} />
     }
   }, [view])
