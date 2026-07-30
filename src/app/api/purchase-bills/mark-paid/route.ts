@@ -65,60 +65,52 @@ export async function POST(req: NextRequest) {
       where: { tenantId: DEMO_TENANT_ID, adStart: { lte: adDate }, adEnd: { gte: adDate } },
     })
 
-    // Update bill status
-    const updated = await db.purchaseBill.update({
-      where: { id: billId },
-      data: {
-        status: 'PAID',
-        paidAmount: amount,
-      },
-    })
+    // Execute in transaction for data integrity
+    const result = await db.$transaction(async (tx) => {
+      // 1. Update bill status
+      const updated = await tx.purchaseBill.update({
+        where: { id: billId },
+        data: { status: 'PAID', paidAmount: amount },
+      })
 
-    // Create payment voucher: Dr. AP, Cr. Bank
-    const datePart = effectiveBsDate.replace(/-/g, '')
-    const existing = await db.voucher.count({
-      where: { tenantId: DEMO_TENANT_ID, voucherNo: { startsWith: `PMT-${datePart}` } },
-    })
-    const voucherNo = `PMT-${datePart}-${String(existing + 1).padStart(3, '0')}`
+      // 2. Create payment voucher: Dr. AP, Cr. Bank (with proper PV prefix)
+      const datePart = effectiveBsDate.replace(/-/g, '')
+      const existing = await tx.voucher.count({
+        where: { tenantId: DEMO_TENANT_ID, voucherNo: { startsWith: `PV-${datePart}` } },
+      })
+      const voucherNo = `PV-${datePart}-${String(existing + 1).padStart(3, '0')}`
 
-    const voucher = await db.voucher.create({
-      data: {
-        tenantId: DEMO_TENANT_ID,
-        fiscalYearId: fiscalYear?.id,
-        voucherNo,
-        voucherType: 'PAYMENT',
-        bsDate: effectiveBsDate,
-        adDate,
-        narration: `Payment made for ${bill.billNo} to ${bill.party.name} (${paymentMethod || 'Bank'})`,
-        refType: 'PURCHASE_BILL',
-        refId: bill.id,
-        totalDebit: amount,
-        totalCredit: amount,
-        status: 'POSTED',
-        lines: {
-          create: [
-            {
-              accountId: apAcc.id,
-              debit: amount,
-              credit: 0,
-              description: `Payment to ${bill.party.name} for ${bill.billNo}`,
-            },
-            {
-              accountId: paymentAcc.id,
-              debit: 0,
-              credit: amount,
-              description: `Paid via ${paymentMethod || 'Bank'}`,
-            },
-          ],
+      const voucher = await tx.voucher.create({
+        data: {
+          tenantId: DEMO_TENANT_ID,
+          fiscalYearId: fiscalYear?.id,
+          voucherNo,
+          voucherType: 'PAYMENT',
+          bsDate: effectiveBsDate,
+          adDate,
+          narration: `Payment made for ${bill.billNo} to ${bill.party.name} (${paymentMethod || 'Bank'})`,
+          refType: 'PURCHASE_BILL',
+          refId: bill.id,
+          totalDebit: amount,
+          totalCredit: amount,
+          status: 'POSTED',
+          lines: {
+            create: [
+              { accountId: apAcc.id, debit: amount, credit: 0, description: `Payment to ${bill.party.name} for ${bill.billNo}` },
+              { accountId: paymentAcc.id, debit: 0, credit: amount, description: `Paid via ${paymentMethod || 'Bank'}` },
+            ],
+          },
         },
-      },
+      })
+
+      return { updated, voucher }
     })
 
     return NextResponse.json({
       success: true,
-      bill: updated,
-      voucher: { voucherNo: voucher.voucherNo, id: voucher.id },
-      message: `Bill ${bill.billNo} marked as PAID. Payment voucher ${voucher.voucherNo} created.`,
+      bill: result.updated,
+      voucher: { voucherNo: result.voucher.voucherNo, id: result.voucher.id },
+      message: `Bill ${bill.billNo} marked as PAID. Payment voucher ${result.voucher.voucherNo} created.`,
     })
   } catch (err: any) {
     console.error('[purchase-bills/mark-paid] error:', err)

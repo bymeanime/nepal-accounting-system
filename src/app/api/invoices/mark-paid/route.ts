@@ -64,60 +64,52 @@ export async function POST(req: NextRequest) {
       where: { tenantId: DEMO_TENANT_ID, adStart: { lte: adDate }, adEnd: { gte: adDate } },
     })
 
-    // Update invoice status
-    const updated = await db.invoice.update({
-      where: { id: invoiceId },
-      data: {
-        status: 'PAID',
-        paidAmount: amount,
-      },
-    })
+    // Execute in transaction for data integrity
+    const result = await db.$transaction(async (tx) => {
+      // 1. Update invoice status
+      const updated = await tx.invoice.update({
+        where: { id: invoiceId },
+        data: { status: 'PAID', paidAmount: amount },
+      })
 
-    // Create payment voucher: Dr. Bank, Cr. Accounts Receivable
-    const datePart = effectiveBsDate.replace(/-/g, '')
-    const existing = await db.voucher.count({
-      where: { tenantId: DEMO_TENANT_ID, voucherNo: { startsWith: `RCPT-${datePart}` } },
-    })
-    const voucherNo = `RCPT-${datePart}-${String(existing + 1).padStart(3, '0')}`
+      // 2. Create receipt voucher: Dr. Bank, Cr. AR (with proper RV prefix)
+      const datePart = effectiveBsDate.replace(/-/g, '')
+      const existing = await tx.voucher.count({
+        where: { tenantId: DEMO_TENANT_ID, voucherNo: { startsWith: `RV-${datePart}` } },
+      })
+      const voucherNo = `RV-${datePart}-${String(existing + 1).padStart(3, '0')}`
 
-    const voucher = await db.voucher.create({
-      data: {
-        tenantId: DEMO_TENANT_ID,
-        fiscalYearId: fiscalYear?.id,
-        voucherNo,
-        voucherType: 'RECEIPT',
-        bsDate: effectiveBsDate,
-        adDate,
-        narration: `Payment received for ${invoice.invoiceNo} from ${invoice.party.name} (${paymentMethod || 'Bank'})`,
-        refType: 'INVOICE',
-        refId: invoice.id,
-        totalDebit: amount,
-        totalCredit: amount,
-        status: 'POSTED',
-        lines: {
-          create: [
-            {
-              accountId: paymentAcc.id,
-              debit: amount,
-              credit: 0,
-              description: `Payment received via ${paymentMethod || 'Bank'}`,
-            },
-            {
-              accountId: arAcc.id,
-              debit: 0,
-              credit: amount,
-              description: `Against ${invoice.invoiceNo}`,
-            },
-          ],
+      const voucher = await tx.voucher.create({
+        data: {
+          tenantId: DEMO_TENANT_ID,
+          fiscalYearId: fiscalYear?.id,
+          voucherNo,
+          voucherType: 'RECEIPT',
+          bsDate: effectiveBsDate,
+          adDate,
+          narration: `Payment received for ${invoice.invoiceNo} from ${invoice.party.name} (${paymentMethod || 'Bank'})`,
+          refType: 'INVOICE',
+          refId: invoice.id,
+          totalDebit: amount,
+          totalCredit: amount,
+          status: 'POSTED',
+          lines: {
+            create: [
+              { accountId: paymentAcc.id, debit: amount, credit: 0, description: `Payment received via ${paymentMethod || 'Bank'}` },
+              { accountId: arAcc.id, debit: 0, credit: amount, description: `Against ${invoice.invoiceNo}` },
+            ],
+          },
         },
-      },
+      })
+
+      return { updated, voucher }
     })
 
     return NextResponse.json({
       success: true,
-      invoice: updated,
-      voucher: { voucherNo: voucher.voucherNo, id: voucher.id },
-      message: `Invoice ${invoice.invoiceNo} marked as PAID. Receipt voucher ${voucher.voucherNo} created.`,
+      invoice: result.updated,
+      voucher: { voucherNo: result.voucher.voucherNo, id: result.voucher.id },
+      message: `Invoice ${invoice.invoiceNo} marked as PAID. Receipt voucher ${result.voucher.voucherNo} created.`,
     })
   } catch (err: any) {
     console.error('[invoices/mark-paid] error:', err)

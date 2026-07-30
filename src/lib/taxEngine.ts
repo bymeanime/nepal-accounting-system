@@ -20,16 +20,23 @@ export const DEFAULT_VAT_RATES = {
 }
 
 export const DEFAULT_TDS_RATES: Record<string, { rate: number; threshold: number; label: string; labelNp: string }> = {
-  '88_RENT_LAND': { rate: 10, threshold: 0, label: 'Rent of Land/Building (Resident)', labelNp: 'घरबहाला' },
+  '88_RENT_LAND': { rate: 10, threshold: 0, label: 'Rent of Land (Resident)', labelNp: 'घरबहाला' },
   '88_RENT_BUILDING': { rate: 10, threshold: 0, label: 'Rent of Building (Resident)', labelNp: 'घरबहाला' },
+  '88_RENT_NR': { rate: 15, threshold: 0, label: 'Rent (Non-Resident)', labelNp: 'गैर आवासीय घरबहाला' },
   '88_INTEREST_DEPOSIT': { rate: 6, threshold: 0, label: 'Interest on Deposit', labelNp: 'ब्याज' },
   '88_INTEREST_LOAN': { rate: 10, threshold: 0, label: 'Interest on Loan (Resident)', labelNp: 'ऋणको ब्याज' },
   '88_INTEREST_NR': { rate: 15, threshold: 0, label: 'Interest (Non-Resident)', labelNp: 'गैर आवासीय ब्याज' },
   '88_CONTRACT': { rate: 1.5, threshold: 50000, label: 'Contract Payment', labelNp: 'ठेक्का भुक्तानी' },
   '88_CONTRACT_NR': { rate: 5, threshold: 50000, label: 'Contract Payment (Non-Resident)', labelNp: 'गैर आवासीय ठेक्का' },
   '88_TRANSPORT': { rate: 1.5, threshold: 50000, label: 'Transport/Freight', labelNp: 'यातायात' },
+  '88_PAYMENT_GOODS': { rate: 1.5, threshold: 50000, label: 'Payment for Goods Purchase', labelNp: 'सामान खरिद भुक्तानी' },
+  '88_GOODS_TRANSPORT': { rate: 1.5, threshold: 50000, label: 'Goods Transport', labelNp: 'मालवाहक यातायात' },
+  '88_SECURITY_SERVICE': { rate: 1.5, threshold: 50000, label: 'Security Service Payment', labelNp: 'सुरक्षा सेवा' },
+  '88_CLEANING_SERVICE': { rate: 1.5, threshold: 50000, label: 'Cleaning Service Payment', labelNp: 'सरसफाई सेवा' },
+  '88_LAB_HOSPITAL': { rate: 1.5, threshold: 50000, label: 'Lab/Hospital Service Payment', labelNp: 'प्रयोगशाला/अस्पताल सेवा' },
   '88_ROYALTY': { rate: 15, threshold: 0, label: 'Royalty', labelNp: 'रोयल्टी' },
   '88_TECH_SERVICE': { rate: 15, threshold: 0, label: 'Technical Service Fee', labelNp: 'प्राविधिक सेवा' },
+  '88_CONSULTATION': { rate: 15, threshold: 0, label: 'Consultation Fee', labelNp: 'परामर्श शुल्क' },
   '88_COMMISSION': { rate: 15, threshold: 0, label: 'Commission', labelNp: 'कमिसन' },
   '88_DIVIDEND_R': { rate: 5, threshold: 0, label: 'Dividend (Resident)', labelNp: 'लाभांश' },
   '88_DIVIDEND_NR': { rate: 7.5, threshold: 0, label: 'Dividend (Non-Resident)', labelNp: 'गैर आवासीय लाभांश' },
@@ -37,6 +44,10 @@ export const DEFAULT_TDS_RATES: Record<string, { rate: number; threshold: number
   '88_RETIREMENT_PAYOUT': { rate: 5, threshold: 0, label: 'Retirement Fund Payout', labelNp: 'सेवा निवृत्ति' },
   '88_INSURANCE_NR': { rate: 1.5, threshold: 0, label: 'Insurance Premium (Non-Resident)', labelNp: 'बीमा' },
   '88_ADVERTISEMENT': { rate: 15, threshold: 0, label: 'Advertisement Fee (Non-Resident)', labelNp: 'विज्ञापन' },
+  '88_DIRECTOR_REMUNERATION': { rate: 5, threshold: 0, label: 'Director Remuneration (Resident)', labelNp: 'निर्देशक पारिश्रमिक' },
+  '88_DIRECTOR_REMUNERATION_NR': { rate: 15, threshold: 0, label: 'Director Remuneration (Non-Resident)', labelNp: 'गैर आवासीय निर्देशक पारिश्रमिक' },
+  '88_TELECOM_NR': { rate: 5, threshold: 0, label: 'Telecom Service (Non-Resident)', labelNp: 'टेलिकम सेवा' },
+  '88_BONUS_NR': { rate: 25, threshold: 0, label: 'Bonus (Non-Resident)', labelNp: 'गैर आवासीय बोनस' },
 }
 
 // ============================================================
