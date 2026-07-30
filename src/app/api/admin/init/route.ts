@@ -54,19 +54,12 @@ export async function POST(req: NextRequest) {
   const steps: string[] = []
 
   try {
-    // Handle reset action — delete all data (don't drop tables, just truncate)
+    // Handle reset action — truncate all tables (faster than deleteMany)
     if (action === 'reset') {
       try {
-        // Delete in dependency order to avoid FK constraint errors
-        const tablesToDelete = ['AuditLog', 'Document', 'PayrollRun', 'FixedAsset', 'TaxReturn', 'PurchaseLine', 'PurchaseBill', 'InvoiceLine', 'Invoice', 'VoucherLine', 'Voucher', 'InventoryMovement', 'Godown', 'Item', 'CostCenter', 'Party', 'TaxRule', 'Employee', 'Account', 'FiscalYear', 'Session', 'UserTenant', 'User', 'Tenant']
-        let deletedCount = 0
-        for (const table of tablesToDelete) {
-          try {
-            const result = await (db as any)[table.charAt(0).toLowerCase() + table.slice(1)].deleteMany({})
-            if (result.count > 0) deletedCount++
-          } catch {}
-        }
-        steps.push(`Deleted data from ${deletedCount} tables`)
+        // Use TRUNCATE CASCADE for fast deletion (PostgreSQL)
+        await db.$executeRawUnsafe(`TRUNCATE TABLE "AuditLog", "Document", "PayrollRun", "FixedAsset", "TaxReturn", "PurchaseLine", "PurchaseBill", "InvoiceLine", "Invoice", "VoucherLine", "Voucher", "InventoryMovement", "Godown", "Item", "CostCenter", "Party", "TaxRule", "Employee", "Account", "FiscalYear", "Session", "UserTenant", "User", "Tenant" CASCADE`)
+        steps.push('Truncated all tables')
       } catch (err: any) {
         steps.push(`Reset warning: ${err.message}`)
       }
