@@ -6,14 +6,54 @@
 
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import '@/lib/db-server'
+import { isSchemaInitialized, initializeSchema } from '@/lib/schema-init'
 import { getFiscalYear, adToBsString, formatBsDate, parseBsDate } from '@/lib/nepaliCalendar'
 
 const DEMO_TENANT_ID = 'demo-tenant'
 
 export async function GET() {
-  const tenant = await db.tenant.findUnique({ where: { id: DEMO_TENANT_ID } })
-  if (!tenant) return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
+  try {
+    // Auto-init schema if missing (Vercel cold start with empty /tmp DB)
+    const schemaReady = await isSchemaInitialized()
+    if (!schemaReady) {
+      // Try to initialize schema first
+      const initResult = await initializeSchema()
+      if (!initResult.success) {
+        return NextResponse.json({
+          error: 'Database not initialized',
+          hint: 'POST /api/admin/init?action=seed to initialize the database with demo data.',
+        }, { status: 503 })
+      }
+      // Auto-seed if schema was just created and is empty
+      const { runSeeders } = await import('@/lib/runtime-seeders')
+      await runSeeders()
+    }
 
+    const tenant = await db.tenant.findUnique({ where: { id: DEMO_TENANT_ID } })
+    if (!tenant) {
+      // Auto-seed if tenant is missing (cold start scenario)
+      const { runSeeders } = await import('@/lib/runtime-seeders')
+      await runSeeders()
+      const reTried = await db.tenant.findUnique({ where: { id: DEMO_TENANT_ID } })
+      if (!reTried) {
+        return NextResponse.json({ error: 'Tenant not found and auto-seed failed' }, { status: 404 })
+      }
+      return NextResponse.json(await buildDashboardResponse(reTried))
+    }
+
+    return NextResponse.json(await buildDashboardResponse(tenant))
+  } catch (err: any) {
+    console.error('[dashboard] error:', err)
+    return NextResponse.json({
+      error: 'Failed to load dashboard',
+      detail: err.message,
+      hint: 'Try POST /api/admin/init?action=seed to initialize the database.',
+    }, { status: 500 })
+  }
+}
+
+async function buildDashboardResponse(tenant: any) {
   const today = new Date()
   const fy = getFiscalYear(today)
   const todayBs = adToBsString(today)
@@ -97,7 +137,7 @@ export async function GET() {
 
   const netProfit = fyIncome - fyExpense
 
-  return NextResponse.json({
+  return {
     tenant: {
       name: tenant.name,
       pan: tenant.pan,
@@ -157,5 +197,5 @@ export async function GET() {
       status: inv.status,
       invoiceType: inv.invoiceType,
     })),
-  })
+  }
 }

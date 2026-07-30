@@ -1,35 +1,21 @@
 // ============================================================
-// Server-only DB initialization (Node.js fs/path)
-// Strategy for Vercel serverless:
-//   1. The pre-seeded SQLite DB is bundled at db/nepal-acct-seeded.db
-//   2. On first request, copy it to /tmp/nepal-acct.db (writable on Vercel)
-//   3. Subsequent requests reuse the /tmp DB (within the same warm instance)
+// Server-only DB initialization
+//
+// Vercel serverless has read-only filesystem except /tmp/.
+// Strategy:
+//   1. On first import, ensure /tmp/nepal-acct.db exists (create empty if missing)
+//   2. The /api/admin/init endpoint programmatically creates tables
+//      using raw SQL (DDL statements) via prisma.$executeRaw
+//   3. Then seeds demo data via the runtime-seeders module
+//
+// This avoids needing to bundle a binary DB file (which Vercel's
+// includeFiles doesn't reliably include in serverless function bundles).
 // ============================================================
 
 import fs from 'fs'
 import path from 'path'
 
 const TMP_DB_PATH = '/tmp/nepal-acct.db'
-
-function findSeededDb(): string | null {
-  // Try multiple paths — Vercel serverless cwd may differ
-  const candidates = [
-    path.join(process.cwd(), 'db', 'nepal-acct-seeded.db'),
-    path.join(__dirname, '..', '..', '..', 'db', 'nepal-acct-seeded.db'),
-    path.join(__dirname, '..', 'db', 'nepal-acct-seeded.db'),
-    '/var/task/db/nepal-acct-seeded.db',
-    './db/nepal-acct-seeded.db',
-  ]
-
-  for (const candidate of candidates) {
-    try {
-      if (fs.existsSync(candidate)) {
-        return candidate
-      }
-    } catch {}
-  }
-  return null
-}
 
 export function ensureDbFile() {
   const dbUrl = process.env.DATABASE_URL || `file:${TMP_DB_PATH}`
@@ -42,21 +28,10 @@ export function ensureDbFile() {
       // Ensure directory exists
       if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
 
-      // If DB file doesn't exist, try to copy from seeded source
+      // Create empty file if missing (schema will be applied via SQL)
       if (!fs.existsSync(filePath)) {
-        const seedSource = findSeededDb()
-        if (seedSource) {
-          fs.copyFileSync(seedSource, filePath)
-          console.log(`[db-server] Copied seeded DB from ${seedSource} to ${filePath}`)
-        } else {
-          // No seed available — create empty file
-          fs.writeFileSync(filePath, '')
-          console.warn(`[db-server] No seed DB found. Created empty file at ${filePath}. Searched: ${[
-            path.join(process.cwd(), 'db', 'nepal-acct-seeded.db'),
-            path.join(__dirname, '..', '..', '..', 'db', 'nepal-acct-seeded.db'),
-            '/var/task/db/nepal-acct-seeded.db',
-          ].join(', ')}`)
-        }
+        fs.writeFileSync(filePath, '')
+        console.log(`[db-server] Created empty DB file at ${filePath}`)
       }
     } catch (err) {
       console.warn('[db-server] Could not ensure DB file:', (err as Error).message)
