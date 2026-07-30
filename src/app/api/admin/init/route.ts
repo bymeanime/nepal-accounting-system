@@ -54,14 +54,19 @@ export async function POST(req: NextRequest) {
   const steps: string[] = []
 
   try {
-    // Handle reset action — drop all tables, then re-init
+    // Handle reset action — delete all data (don't drop tables, just truncate)
     if (action === 'reset') {
       try {
-        const tables = await db.$queryRawUnsafe<{tablename: string}[]>(`SELECT tablename FROM pg_tables WHERE schemaname = 'public'`)
-        for (const t of tables) {
-          await db.$executeRawUnsafe(`DROP TABLE IF EXISTS "${t.tablename}" CASCADE`)
+        // Delete in dependency order to avoid FK constraint errors
+        const tablesToDelete = ['AuditLog', 'Document', 'PayrollRun', 'FixedAsset', 'TaxReturn', 'PurchaseLine', 'PurchaseBill', 'InvoiceLine', 'Invoice', 'VoucherLine', 'Voucher', 'InventoryMovement', 'Godown', 'Item', 'CostCenter', 'Party', 'TaxRule', 'Employee', 'Account', 'FiscalYear', 'Session', 'UserTenant', 'User', 'Tenant']
+        let deletedCount = 0
+        for (const table of tablesToDelete) {
+          try {
+            const result = await (db as any)[table.charAt(0).toLowerCase() + table.slice(1)].deleteMany({})
+            if (result.count > 0) deletedCount++
+          } catch {}
         }
-        steps.push(`Dropped ${tables.length} tables`)
+        steps.push(`Deleted data from ${deletedCount} tables`)
       } catch (err: any) {
         steps.push(`Reset warning: ${err.message}`)
       }

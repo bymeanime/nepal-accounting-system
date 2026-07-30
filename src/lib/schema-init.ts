@@ -487,7 +487,13 @@ CREATE INDEX IF NOT EXISTS idx_fiscalyear_tenant ON FiscalYear(tenantId, bsYearS
  */
 export async function initializeSchema(): Promise<{ success: boolean; message: string; tablesCreated: number }> {
   try {
-    // Split SQL by semicolons and execute each statement
+    // Check if tables already exist (created by prisma db push at build time)
+    const schemaReady = await isSchemaInitialized()
+    if (schemaReady) {
+      return { success: true, message: 'Schema already exists (created by prisma db push)', tablesCreated: 0 }
+    }
+
+    // Fallback: create tables using raw SQL (for environments where prisma db push didn't run)
     const statements = SCHEMA_SQL.split(';').map(s => s.trim()).filter(s => s.length > 0 && !s.startsWith('--'))
     let executed = 0
     for (const stmt of statements) {
