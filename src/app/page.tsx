@@ -20,6 +20,7 @@ import { StockMovementsView } from '@/components/accounting/views/stock-movement
 import { FixedAssetsView } from '@/components/accounting/views/fixed-assets-view'
 import { FxRatesView } from '@/components/accounting/views/fx-rates-view'
 import { TenantsView } from '@/components/accounting/views/tenants-view'
+import { SettingsView } from '@/components/accounting/views/settings-view'
 
 export type ViewKey =
   | 'dashboard'
@@ -34,6 +35,7 @@ export type ViewKey =
   | 'fixed-assets'
   | 'fx-rates'
   | 'tenants'
+  | 'settings'
   | 'vat-return'
   | 'trial-balance'
   | 'profit-loss'
@@ -65,6 +67,7 @@ function App() {
       case 'fixed-assets': return <FixedAssetsView />
       case 'fx-rates': return <FxRatesView />
       case 'tenants': return <TenantsView />
+      case 'settings': return <SettingsView />
       case 'vat-return': return <VatReturnView />
       case 'trial-balance': return <TrialBalanceView />
       case 'profit-loss': return <ProfitLossView />

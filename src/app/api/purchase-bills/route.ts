@@ -108,6 +108,32 @@ export async function POST(req: NextRequest) {
     include: { lines: true, party: true },
   })
 
+  // Auto-create stock movements (add inventory for each line item that has an itemId)
+  for (const line of lines) {
+    if (line.itemId) {
+      const item = await db.item.findFirst({ where: { id: line.itemId, tenantId: DEMO_TENANT_ID } })
+      if (item) {
+        const qty = Number(line.quantity || 1)
+        const rate = Number(line.rate || 0)
+        await db.inventoryMovement.create({
+          data: {
+            tenantId: DEMO_TENANT_ID,
+            itemId: item.id,
+            type: 'IN',
+            quantity: Math.abs(qty), // positive for IN
+            rate,
+            value: qty * rate,
+            refType: 'PURCHASE',
+            refId: bill.id,
+            bsDate,
+            adDate,
+            notes: `Received via ${billNo}`,
+          },
+        })
+      }
+    }
+  }
+
   // Auto-create purchase voucher:
   // Dr. Purchase Taxable (5002) — taxableAmount
   // Dr. Input VAT (1040) — vatAmount

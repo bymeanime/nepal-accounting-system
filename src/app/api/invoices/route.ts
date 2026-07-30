@@ -113,6 +113,32 @@ export async function POST(req: NextRequest) {
     include: { lines: true, party: true },
   })
 
+  // Auto-create stock movements (reduce inventory for each line item that has an itemId)
+  for (const line of lines) {
+    if (line.itemId) {
+      const item = await db.item.findFirst({ where: { id: line.itemId, tenantId: DEMO_TENANT_ID } })
+      if (item) {
+        const qty = Number(line.quantity || 1)
+        const rate = Number(line.rate || 0)
+        await db.inventoryMovement.create({
+          data: {
+            tenantId: DEMO_TENANT_ID,
+            itemId: item.id,
+            type: 'OUT',
+            quantity: -Math.abs(qty), // negative for OUT
+            rate,
+            value: qty * rate,
+            refType: 'INVOICE',
+            refId: invoice.id,
+            bsDate,
+            adDate,
+            notes: `Sold via ${invoiceNo}`,
+          },
+        })
+      }
+    }
+  }
+
   // Create accounting voucher (auto-post)
   // Dr. Accounts Receivable (1010) — total
   // Cr. Sales Taxable (4001) — taxableAmount

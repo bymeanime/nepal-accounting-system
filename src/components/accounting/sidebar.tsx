@@ -23,6 +23,7 @@ import {
   Languages,
   DollarSign,
   Building,
+  Settings,
 } from 'lucide-react'
 
 interface SidebarProps {
@@ -33,7 +34,7 @@ interface SidebarProps {
 
 interface NavItem {
   key: ViewKey
-  labelKey: 'dashboard' | 'newInvoice' | 'salesInvoices' | 'purchaseBills' | 'journalVouchers' | 'parties' | 'chartOfAccounts' | 'items' | 'stockMovements' | 'fixedAssets' | 'vatReturn' | 'payroll' | 'trialBalance' | 'profitLoss' | 'balanceSheet' | 'fxRates' | 'tenants'
+  labelKey: 'dashboard' | 'newInvoice' | 'salesInvoices' | 'purchaseBills' | 'journalVouchers' | 'parties' | 'chartOfAccounts' | 'items' | 'stockMovements' | 'fixedAssets' | 'vatReturn' | 'payroll' | 'trialBalance' | 'profitLoss' | 'balanceSheet' | 'fxRates' | 'tenants' | 'settings'
   icon: React.ComponentType<{ className?: string }>
   group: 'navOverview' | 'navTransactions' | 'navMaster' | 'navInventory' | 'navTaxCompliance' | 'navReports'
 }
@@ -49,6 +50,7 @@ const NAV: NavItem[] = [
 
   { key: 'tenants', labelKey: 'tenants', icon: Building, group: 'navMaster' },
   { key: 'chart-of-accounts', labelKey: 'chartOfAccounts', icon: Building2, group: 'navMaster' },
+  { key: 'settings', labelKey: 'settings', icon: Settings, group: 'navMaster' },
   { key: 'items', labelKey: 'items', icon: Package, group: 'navInventory' },
   { key: 'stock-movements', labelKey: 'stockMovements', icon: PackageSearch, group: 'navInventory' },
   { key: 'fixed-assets', labelKey: 'fixedAssets', icon: Boxes, group: 'navInventory' },

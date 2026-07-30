@@ -52,6 +52,7 @@ export const translations = {
   balanceSheet: { en: 'Balance Sheet', ne: 'ब्यालेन्स सिट' },
   fxRates: { en: 'FX Rates (NRB)', ne: 'विदेशी मुद्रा दर (नेरा)' },
   tenants: { en: 'Companies', ne: 'कम्पनीहरू' },
+  settings: { en: 'Settings', ne: 'सेटिङ्स' },
 
   // Dashboard
   cashInHand: { en: 'Cash in Hand', ne: 'नगद' },

@@ -6,19 +6,43 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { formatNpr, formatNprWithSymbol } from '@/lib/format'
-import { FileText, Search, FileDown } from 'lucide-react'
+import { FileText, Search, FileDown, CheckCircle2 } from 'lucide-react'
+import { toast } from 'sonner'
+import { Toaster } from '@/components/ui/sonner'
 
 export function InvoicesListView() {
   const [invoices, setInvoices] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [markingPaid, setMarkingPaid] = useState<string | null>(null)
 
-  useEffect(() => {
+  const load = () => {
     fetch('/api/invoices?limit=100')
       .then(r => r.json())
       .then(d => setInvoices(d.invoices || []))
       .finally(() => setLoading(false))
-  }, [])
+  }
+
+  useEffect(() => { load() }, [])
+
+  const handleMarkPaid = async (invoiceId: string, invoiceNo: string) => {
+    setMarkingPaid(invoiceId)
+    try {
+      const res = await fetch(`/api/invoices/mark-paid?id=${invoiceId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ paymentMethod: 'Bank', paymentAccountCode: '1002' }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed')
+      toast.success(data.message || `Invoice ${invoiceNo} marked as paid`)
+      load()
+    } catch (e: any) {
+      toast.error(e.message)
+    } finally {
+      setMarkingPaid(null)
+    }
+  }
 
   const filtered = invoices.filter(inv =>
     !search ||
@@ -34,6 +58,7 @@ export function InvoicesListView() {
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-4">
+      <Toaster richColors />
       <div>
         <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
           <FileText className="w-6 h-6 text-blue-600" />
@@ -84,11 +109,12 @@ export function InvoicesListView() {
                 <th className="px-4 py-2 font-medium text-right">Total</th>
                 <th className="px-4 py-2 font-medium">Status</th>
                 <th className="px-4 py-2 font-medium">PDF</th>
+                <th className="px-4 py-2 font-medium">Action</th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr><td colSpan={10} className="text-center py-12 text-slate-400">No invoices found</td></tr>
+                <tr><td colSpan={11} className="text-center py-12 text-slate-400">No invoices found</td></tr>
               ) : filtered.map(inv => (
                 <tr key={inv.id} className="border-b border-slate-50 hover:bg-slate-50/50">
                   <td className="px-4 py-2 font-mono text-xs">{inv.invoiceNo}</td>
@@ -115,6 +141,22 @@ export function InvoicesListView() {
                     >
                       <FileDown className="w-3 h-3" />PDF
                     </a>
+                  </td>
+                  <td className="px-4 py-2">
+                    {inv.status !== 'PAID' ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleMarkPaid(inv.id, inv.invoiceNo)}
+                        disabled={markingPaid === inv.id}
+                        className="h-7 text-xs"
+                      >
+                        <CheckCircle2 className="w-3 h-3 mr-1" />
+                        {markingPaid === inv.id ? '...' : 'Mark Paid'}
+                      </Button>
+                    ) : (
+                      <span className="text-xs text-emerald-600 font-medium">✓ Paid</span>
+                    )}
                   </td>
                 </tr>
               ))}
