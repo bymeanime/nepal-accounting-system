@@ -57,12 +57,10 @@ export async function POST(req: NextRequest) {
     // Handle reset action — drop all tables, then re-init
     if (action === 'reset') {
       try {
-        await db.$executeRawUnsafe(`PRAGMA foreign_keys = OFF`)
-        const tables = await db.$queryRawUnsafe<{name: string}[]>(`SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '_prisma_%'`)
+        const tables = await db.$queryRawUnsafe<{tablename: string}[]>(`SELECT tablename FROM pg_tables WHERE schemaname = 'public'`)
         for (const t of tables) {
-          await db.$executeRawUnsafe(`DROP TABLE IF EXISTS "${t.name}"`)
+          await db.$executeRawUnsafe(`DROP TABLE IF EXISTS "${t.tablename}" CASCADE`)
         }
-        await db.$executeRawUnsafe(`PRAGMA foreign_keys = ON`)
         steps.push(`Dropped ${tables.length} tables`)
       } catch (err: any) {
         steps.push(`Reset warning: ${err.message}`)

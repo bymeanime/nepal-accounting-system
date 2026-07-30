@@ -9,9 +9,9 @@ generator client {
 }
 
 datasource db {
-  // Works with both SQLite (file:) and PostgreSQL (postgresql:)
-  // The actual provider is determined by the DATABASE_URL scheme at runtime
-  provider = "sqlite"
+  // PostgreSQL for production (Vercel Postgres / Neon)
+  // For local dev, set DATABASE_URL=file:./db/custom.db in .env to use SQLite
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
